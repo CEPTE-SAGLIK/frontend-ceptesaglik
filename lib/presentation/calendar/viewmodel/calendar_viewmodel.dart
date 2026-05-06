@@ -36,8 +36,8 @@ class CalendarViewModel extends ChangeNotifier {
   DateTime _selectedDay = DateTime.now();
   DateTime _focusedDay = DateTime.now();
 
-  // Tüm etkinlikler
-  final Map<DateTime, List<Reminder>> _events = {};
+  // Tüm etkinlikler (ham liste — tekrar hesabı _occursOnDay ile yapılır)
+  final List<Reminder> _allReminders = [];
 
   CalendarViewModel({
     required ReminderRepository reminderRepository,
@@ -80,17 +80,33 @@ class CalendarViewModel extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   DateTime get selectedDay => _selectedDay;
   DateTime get focusedDay => _focusedDay;
-  Map<DateTime, List<Reminder>> get events => _events;
+  List<Reminder> get allReminders => _allReminders;
 
   /// Seçilen güne ait etkinlikleri döndürür
   List<Reminder> get selectedDayEvents {
     return _getEventsForDay(_selectedDay);
   }
 
-  /// Belirli bir güne ait etkinlikleri döndürür
+  /// Belirli bir güne ait etkinlikleri döndürür (tekrar kuralları dahil)
   List<Reminder> _getEventsForDay(DateTime day) {
-    final normalizedDay = _normalizeDate(day);
-    return _events[normalizedDay] ?? [];
+    final normalized = _normalizeDate(day);
+    return _allReminders.where((r) => _occursOnDay(r, normalized)).toList();
+  }
+
+  /// Hatırlatıcının verilen günde gerçekleşip gerçekleşmediğini hesaplar
+  bool _occursOnDay(Reminder reminder, DateTime day) {
+    final start = _normalizeDate(reminder.dateTime);
+    if (day.isBefore(start)) return false;
+    switch (reminder.repeatType) {
+      case RepeatType.none:
+        return day == start;
+      case RepeatType.daily:
+        return true;
+      case RepeatType.weekly:
+        return day.difference(start).inDays % 7 == 0;
+      case RepeatType.monthly:
+        return day.day == start.day;
+    }
   }
 
   /// Belirli bir günde etkinlik var mı kontrol eder
@@ -169,32 +185,16 @@ class CalendarViewModel extends ChangeNotifier {
 
   /// Etkinliği tamamlandı olarak işaretler
   Future<bool> toggleEventCompletion(String eventId) async {
-    final reminder = _events.values
-        .expand((list) => list)
+    final reminder = _allReminders
         .firstWhere((r) => r.id == eventId, orElse: () => throw Exception('Hatırlatma bulunamadı'));
     final result = await _reminderRepository.toggleComplete(reminder);
 
     if (result.isSuccess) {
-      for (var dayEvents in _events.values) {
-        for (int i = 0; i < dayEvents.length; i++) {
-          if (dayEvents[i].id == eventId) {
-            final event = dayEvents[i];
-            dayEvents[i] = Reminder(
-              id: event.id,
-              personId: event.personId,
-              title: event.title,
-              description: event.description,
-              type: event.type,
-              dateTime: event.dateTime,
-              repeatType: event.repeatType,
-              isActive: !event.isActive,
-              relatedItemId: event.relatedItemId,
-              createdAt: event.createdAt,
-            );
-            notifyListeners();
-            return true;
-          }
-        }
+      final idx = _allReminders.indexWhere((r) => r.id == eventId);
+      if (idx != -1) {
+        _allReminders[idx] = _allReminders[idx].copyWith(isActive: !_allReminders[idx].isActive);
+        notifyListeners();
+        return true;
       }
     }
     _errorMessage = result.error;
@@ -207,10 +207,7 @@ class CalendarViewModel extends ChangeNotifier {
     final result = await _reminderRepository.delete(eventId);
 
     if (result.isSuccess) {
-      for (var normalizedDay in _events.keys) {
-        _events[normalizedDay]?.removeWhere((event) => event.id == eventId);
-      }
-      _events.removeWhere((key, value) => value.isEmpty);
+      _allReminders.removeWhere((r) => r.id == eventId);
       notifyListeners();
       return true;
     }
@@ -241,15 +238,9 @@ class CalendarViewModel extends ChangeNotifier {
     final result = await _reminderRepository.getAll(_userId!);
 
     if (result.isSuccess) {
-      _events.clear();
-      for (var reminder in result.data!) {
-        final normalizedDay = _normalizeDate(reminder.dateTime);
-        if (_events.containsKey(normalizedDay)) {
-          _events[normalizedDay]!.add(reminder);
-        } else {
-          _events[normalizedDay] = [reminder];
-        }
-      }
+      _allReminders
+        ..clear()
+        ..addAll(result.data!);
       _status = CalendarStatus.loaded;
     } else {
       _status = CalendarStatus.error;

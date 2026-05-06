@@ -34,7 +34,7 @@ void main() {
 
     test('should start with initial status', () {
       expect(viewModel.status, CalendarStatus.initial);
-      expect(viewModel.events, isEmpty);
+      expect(viewModel.allReminders, isEmpty);
       expect(viewModel.errorMessage, isNull);
     });
 

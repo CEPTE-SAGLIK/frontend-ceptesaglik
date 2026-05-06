@@ -152,13 +152,14 @@ class MyApp extends StatelessWidget {
           update: (_, __, ___, ____, _____, vm) => vm!,
         ),
 
-        ChangeNotifierProxyProvider2<ReminderRepository, UserRepository,
-            AddReminderViewModel>(
+        ChangeNotifierProxyProvider3<ReminderRepository, UserRepository,
+            MedicineRepository, AddReminderViewModel>(
           create: (ctx) => AddReminderViewModel(
             reminderRepository: ctx.read<ReminderRepository>(),
             userRepository: ctx.read<UserRepository>(),
+            medicineRepository: ctx.read<MedicineRepository>(),
           ),
-          update: (_, __, ___, vm) => vm!,
+          update: (_, __, ___, ____, vm) => vm!,
         ),
         ChangeNotifierProxyProvider2<ReminderRepository, UserRepository,
             ReminderListViewModel>(

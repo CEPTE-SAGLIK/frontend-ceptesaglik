@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
 import 'package:health_asistants/core/utils/theme/text_styles.dart';
-import 'package:health_asistants/data/model/reminder.dart';
 import 'package:health_asistants/presentation/components/custom_button.dart';
 import 'package:health_asistants/presentation/components/custom_text_input.dart';
 import 'package:health_asistants/presentation/components/time_picker_selector.dart';
@@ -21,8 +20,21 @@ class AddReminderScreen extends StatelessWidget {
   }
 }
 
-class _AddReminderContent extends StatelessWidget {
+class _AddReminderContent extends StatefulWidget {
   const _AddReminderContent();
+
+  @override
+  State<_AddReminderContent> createState() => _AddReminderContentState();
+}
+
+class _AddReminderContentState extends State<_AddReminderContent> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AddReminderViewModel>().reset();
+    });
+  }
 
   Future<void> _handleSave(
     BuildContext context,
@@ -75,10 +87,20 @@ class _AddReminderContent extends StatelessWidget {
                   children: [
                     Expanded(
                       child: FrequencySelector(
-                        selectedFrequency: _getFrequencyFromRepeatType(
-                          viewModel.repeatType,
+                        selectedFrequency: _getFrequencyFromLabel(
+                          viewModel.selectedFrequencyLabel,
                         ),
                         onFrequencyChanged: (newFreq) {
+                          if (newFreq == Frequency.other) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Özel sıklık seçeneği yakında eklenecek.',
+                                ),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
                           viewModel.setRepeatTypeFromFrequency(newFreq.label);
                         },
                       ),
@@ -213,16 +235,12 @@ class _AddReminderContent extends StatelessWidget {
     );
   }
 
-  Frequency? _getFrequencyFromRepeatType(RepeatType repeatType) {
-    switch (repeatType) {
-      case RepeatType.daily:
-        return Frequency.onceDaily;
-      case RepeatType.weekly:
-        return Frequency.onceWeekly;
-      case RepeatType.monthly:
-        return Frequency.onceMonthly;
-      case RepeatType.none:
-        return null;
+  Frequency? _getFrequencyFromLabel(String? label) {
+    if (label == null) return null;
+    try {
+      return Frequency.values.firstWhere((f) => f.label == label);
+    } catch (_) {
+      return null;
     }
   }
 }

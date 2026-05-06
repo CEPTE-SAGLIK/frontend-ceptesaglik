@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import 'package:health_asistants/data/model/medicine.dart';
 import 'package:health_asistants/data/model/reminder.dart';
+import 'package:health_asistants/data/repository/medicine_repository.dart';
 import 'package:health_asistants/data/repository/reminder_repository.dart';
 import 'package:health_asistants/data/repository/user_repository.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
@@ -26,13 +28,16 @@ class ReminderTypeItem {
 class AddReminderViewModel extends ChangeNotifier {
   final ReminderRepository _reminderRepository;
   final UserRepository? _userRepository;
+  final MedicineRepository? _medicineRepository;
   final _uuid = const Uuid();
 
   AddReminderViewModel({
     ReminderRepository? reminderRepository,
     UserRepository? userRepository,
+    MedicineRepository? medicineRepository,
   })  : _reminderRepository = reminderRepository ?? ReminderRepository(),
-        _userRepository = userRepository;
+        _userRepository = userRepository,
+        _medicineRepository = medicineRepository;
 
   AddReminderStatus _status = AddReminderStatus.initial;
   String? _errorMessage;
@@ -42,6 +47,7 @@ class AddReminderViewModel extends ChangeNotifier {
   String? _description;
   TimeOfDay? _selectedTime;
   RepeatType _repeatType = RepeatType.none;
+  String? _selectedFrequencyLabel;
   int _selectedTypeIndex = 0;
   String? _personId;
 
@@ -92,6 +98,7 @@ class AddReminderViewModel extends ChangeNotifier {
   String? get description => _description;
   TimeOfDay? get selectedTime => _selectedTime;
   RepeatType get repeatType => _repeatType;
+  String? get selectedFrequencyLabel => _selectedFrequencyLabel;
   int get selectedTypeIndex => _selectedTypeIndex;
   ReminderTypeItem get selectedReminderType =>
       reminderTypes[_selectedTypeIndex];
@@ -146,6 +153,8 @@ class AddReminderViewModel extends ChangeNotifier {
 
   void setRepeatTypeFromFrequency(String? frequency) {
     if (frequency == null) return;
+
+    _selectedFrequencyLabel = frequency;
 
     RepeatType newType;
     switch (frequency) {
@@ -218,6 +227,26 @@ class AddReminderViewModel extends ChangeNotifier {
         _selectedTime!.minute,
       );
 
+      // İlaç türü seçildiyse önce Medicine kaydı oluştur
+      String? linkedMedicineId;
+      if (selectedReminderType.type == ReminderType.medicine &&
+          _medicineRepository != null) {
+        final medicine = Medicine(
+          id: _uuid.v4(),
+          name: _title,
+          frequencyType: _toFrequencyType(),
+          timesPerDay: _timesPerDay(),
+          reminderTimes: [reminderDateTime],
+          startDate: DateTime(now.year, now.month, now.day),
+          notes: _description,
+          personId: _personId,
+        );
+        final medResult = await _medicineRepository.create(medicine);
+        if (medResult.isSuccess) {
+          linkedMedicineId = medResult.data?.id;
+        }
+      }
+
       final reminder = Reminder(
         id: _uuid.v4(),
         personId: _personId!,
@@ -228,6 +257,7 @@ class AddReminderViewModel extends ChangeNotifier {
         repeatType: _repeatType,
         isActive: true,
         createdAt: now,
+        relatedItemId: linkedMedicineId,
       );
 
       // Repository'ye kaydet
@@ -251,6 +281,28 @@ class AddReminderViewModel extends ChangeNotifier {
     }
   }
 
+  FrequencyType _toFrequencyType() {
+    switch (_repeatType) {
+      case RepeatType.weekly:
+        return FrequencyType.weekly;
+      case RepeatType.monthly:
+        return FrequencyType.monthly;
+      case RepeatType.daily:
+      case RepeatType.none:
+        return FrequencyType.daily;
+    }
+  }
+
+  int _timesPerDay() {
+    switch (_selectedFrequencyLabel) {
+      case 'Günde 2 kere':
+      case 'Haftada 2 kere':
+        return 2;
+      default:
+        return 1;
+    }
+  }
+
   /// Formu sıfırla
   void reset() {
     _status = AddReminderStatus.initial;
@@ -259,6 +311,7 @@ class AddReminderViewModel extends ChangeNotifier {
     _description = null;
     _selectedTime = null;
     _repeatType = RepeatType.none;
+    _selectedFrequencyLabel = null;
     _selectedTypeIndex = 0;
     _personId = null;
     notifyListeners();

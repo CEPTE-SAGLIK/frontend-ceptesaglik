@@ -10,7 +10,7 @@ enum VaccineStatus {
 
   static VaccineStatus fromString(String value) {
     return VaccineStatus.values.firstWhere(
-      (e) => e.name == value,
+      (e) => e.name.toLowerCase() == value.toLowerCase(),
       orElse: () => VaccineStatus.pending,
     );
   }
@@ -67,15 +67,22 @@ class Vaccine {
   /// Aşı tamamlandı mı?
   bool get isCompleted => status == VaccineStatus.completed;
 
-  /// Aşı gecikmiş mi?
-  bool get isOverdue =>
-      status == VaccineStatus.pending && date.isBefore(DateTime.now());
+  /// Aşı gecikmiş mi? (sadece tarihi geçmişse — bugün dahil değil)
+  bool get isOverdue {
+    if (status != VaccineStatus.pending) return false;
+    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final vaccineDay = DateTime(date.year, date.month, date.day);
+    return vaccineDay.isBefore(today);
+  }
 
-  /// Yaklaşan aşı mı? (30 gün içinde)
-  bool get isUpcoming =>
-      status == VaccineStatus.pending &&
-      date.isAfter(DateTime.now()) &&
-      date.isBefore(DateTime.now().add(const Duration(days: 30)));
+  /// Yaklaşan aşı mı? (bugün veya 30 gün içinde)
+  bool get isUpcoming {
+    if (status != VaccineStatus.pending) return false;
+    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final vaccineDay = DateTime(date.year, date.month, date.day);
+    return !vaccineDay.isBefore(today) &&
+        vaccineDay.isBefore(today.add(const Duration(days: 30)));
+  }
 
   factory Vaccine.fromJson(Map<String, dynamic> json) {
     return Vaccine(

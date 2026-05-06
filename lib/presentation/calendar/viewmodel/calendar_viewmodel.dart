@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:health_asistants/data/model/reminder.dart';
+import 'package:health_asistants/data/model/medicine.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/data/repository/reminder_repository.dart';
+import 'package:health_asistants/data/repository/medicine_repository.dart';
 import 'package:health_asistants/data/repository/user_repository.dart';
 
 /// Takvim etkinlik durumu
@@ -25,6 +27,7 @@ class EventTypeItem {
 
 class CalendarViewModel extends ChangeNotifier {
   final ReminderRepository _reminderRepository;
+  final MedicineRepository _medicineRepository;
   final UserRepository _userRepository;
   final _uuid = const Uuid();
 
@@ -41,8 +44,10 @@ class CalendarViewModel extends ChangeNotifier {
 
   CalendarViewModel({
     required ReminderRepository reminderRepository,
+    required MedicineRepository medicineRepository,
     required UserRepository userRepository,
   })  : _reminderRepository = reminderRepository,
+        _medicineRepository = medicineRepository,
         _userRepository = userRepository;
 
   // Etkinlik türleri
@@ -114,6 +119,18 @@ class CalendarViewModel extends ChangeNotifier {
     return _getEventsForDay(day);
   }
 
+  FrequencyType _repeatToFrequency(RepeatType repeat) {
+    switch (repeat) {
+      case RepeatType.weekly:
+        return FrequencyType.weekly;
+      case RepeatType.monthly:
+        return FrequencyType.monthly;
+      case RepeatType.daily:
+      case RepeatType.none:
+        return FrequencyType.daily;
+    }
+  }
+
   /// Tarihi normalize eder (saat bilgisini kaldırır)
   DateTime _normalizeDate(DateTime date) {
     return DateTime(date.year, date.month, date.day);
@@ -173,7 +190,31 @@ class CalendarViewModel extends ChangeNotifier {
       createdAt: DateTime.now(),
     );
 
-    final result = await _reminderRepository.create(reminder);
+    // İlaç türündeki hatırlatıcılar Medicine tablosuna da kaydedilsin;
+    // oluşan Medicine ID'si Reminder'a bağlanır ki backend sanal hatırlatıcı eklemesin.
+    String? linkedMedicineId;
+    if (type == ReminderType.medicine) {
+      final medicine = Medicine(
+        id: _uuid.v4(),
+        name: title,
+        frequencyType: _repeatToFrequency(repeatType),
+        timesPerDay: 1,
+        reminderTimes: [dateTime],
+        startDate: _normalizeDate(_selectedDay),
+        notes: description,
+      );
+      final medResult = await _medicineRepository.create(medicine);
+      if (medResult.isSuccess) {
+        linkedMedicineId = medResult.data?.id;
+      }
+    }
+
+    // relatedItemId ile Reminder ↔ Medicine bağlantısını kur
+    final linkedReminder = linkedMedicineId != null
+        ? reminder.copyWith(relatedItemId: linkedMedicineId)
+        : reminder;
+
+    final result = await _reminderRepository.create(linkedReminder);
     if (result.isSuccess) {
       await loadEvents();
       return true;

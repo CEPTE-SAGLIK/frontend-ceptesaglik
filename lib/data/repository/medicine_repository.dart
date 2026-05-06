@@ -65,16 +65,19 @@ class MedicineRepository extends BaseRepository {
       if (_userId == null) return Result.failure('Kullanıcı bilgisi alınamadı');
 
       final body = _toCreateDto(medicine, _userId!);
-      final response = await apiClient.post<Map<String, dynamic>>(
+      final response = await apiClient.post<dynamic>(
         ApiEndpoints.medicines,
         body: body,
         fromJson: (json) => json,
       );
       if (response.isSuccess && response.data != null) {
-        // Backend returns the Guid of the created medicine
-        final createdId = response.data!['id']?.toString() ??
-            response.data!['Id']?.toString() ??
-            medicine.id;
+        final data = response.data;
+        final String createdId;
+        if (data is Map) {
+          createdId = data['id']?.toString() ?? data['Id']?.toString() ?? medicine.id;
+        } else {
+          createdId = data.toString();
+        }
         return Result.success(medicine.copyWith(id: createdId));
       }
       return Result.failure(response.errorMessage ?? 'İlaç eklenemedi');
@@ -120,11 +123,12 @@ class MedicineRepository extends BaseRepository {
   int _frequencyToRepeatType(FrequencyType type) {
     switch (type) {
       case FrequencyType.daily:
+      case FrequencyType.everyOtherDay:
         return 1;
       case FrequencyType.weekly:
         return 2;
-      case FrequencyType.everyOtherDay:
-        return 1;
+      case FrequencyType.monthly:
+        return 3;
       case FrequencyType.custom:
         return 0;
     }

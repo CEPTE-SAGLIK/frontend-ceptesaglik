@@ -1,97 +1,94 @@
 import 'package:flutter/material.dart';
 import 'package:health_asistants/data/model/illness.dart';
-import 'package:health_asistants/core/network/api_client.dart';
-import 'package:health_asistants/data/repository/user_repository.dart';
+import 'package:health_asistants/data/model/person.dart';
+import 'package:health_asistants/data/repository/illness_repository.dart';
 
 class IllnessViewModel extends ChangeNotifier {
-  final ApiClient _apiClient;
-  final UserRepository _userRepository;
+  final IllnessRepository _repository;
 
   List<Illness> _illnesses = [];
+  List<Person> _persons = [];
+  Person? _selectedPerson;
   bool _isLoading = false;
+  bool _isPersonsLoading = false;
   String? _errorMessage;
-  String? _personId;
 
-  IllnessViewModel({
-    required ApiClient apiClient,
-    required UserRepository userRepository,
-  })  : _apiClient = apiClient,
-        _userRepository = userRepository;
+  IllnessViewModel({required IllnessRepository repository})
+      : _repository = repository;
 
   List<Illness> get illnesses => _illnesses;
+  List<Person> get persons => _persons;
+  Person? get selectedPerson => _selectedPerson;
   bool get isLoading => _isLoading;
+  bool get isPersonsLoading => _isPersonsLoading;
   String? get errorMessage => _errorMessage;
 
-  Future<void> _ensurePersonId() async {
-    if (_personId != null) return;
-    final result = await _userRepository.getCurrentPerson();
+  Future<void> loadPersons() async {
+    _isPersonsLoading = true;
+    notifyListeners();
+
+    final result = await _repository.getPersons();
     if (result.isSuccess && result.data != null) {
-      _personId = result.data!.id;
+      _persons = result.data!.all;
+      _selectedPerson ??= result.data!.self;
     }
+
+    _isPersonsLoading = false;
+    notifyListeners();
+
+    await fetchIllnesses();
+  }
+
+  Future<void> selectPerson(Person person) async {
+    _selectedPerson = person;
+    notifyListeners();
+    await fetchIllnesses();
   }
 
   Future<void> fetchIllnesses() async {
+    if (_selectedPerson == null) return;
+
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
-    await _ensurePersonId();
-    if (_personId == null) {
-      _isLoading = false;
-      _errorMessage = 'Profil bilgisi alınamadı';
-      notifyListeners();
-      return;
-    }
-
-    final response = await _apiClient.get<List<Illness>>(
-      ApiEndpoints.illnessesByPerson(_personId!),
-      fromJson: (data) =>
-          (data as List).map((e) => Illness.fromJson(e)).toList(),
-    );
-
-    if (response.isSuccess) {
-      _illnesses = response.data ?? [];
+    final result =
+        await _repository.getIllnessesByPerson(_selectedPerson!.id);
+    if (result.isSuccess) {
+      _illnesses = result.data ?? [];
     } else {
-      _errorMessage = response.errorMessage;
+      _errorMessage = result.error;
     }
 
     _isLoading = false;
     notifyListeners();
   }
 
-  Future<bool> addIllness(String name, String status, String? doctorNotes) async {
-    await _ensurePersonId();
-    if (_personId == null) return false;
-
-    final body = {
-      'personId': _personId,
-      'name': name,
-      'diagnosisDate': DateTime.now().toIso8601String(),
-      'status': status,
-      'doctorNotes': doctorNotes,
-    };
-
-    final response = await _apiClient.post(ApiEndpoints.addIllness, body: body);
-
-    if (response.isSuccess) {
+  Future<bool> addIllness(
+      String name, String status, String? doctorNotes, String personId) async {
+    final result = await _repository.addIllness(
+      personId: personId,
+      name: name,
+      status: status,
+      doctorNotes: doctorNotes,
+    );
+    if (result.isSuccess) {
       await fetchIllnesses();
       return true;
     }
-    _errorMessage = response.errorMessage;
+    _errorMessage = result.error;
     notifyListeners();
     return false;
   }
 
-  Future<bool> deleteIllness(dynamic id) async {
-    final response =
-        await _apiClient.delete(ApiEndpoints.illness(id.toString()));
-
-    if (response.isSuccess) {
+  Future<bool> deleteIllness(String id) async {
+    final result = await _repository.deleteIllness(id);
+    if (result.isSuccess) {
       _illnesses.removeWhere((e) => e.id == id);
       notifyListeners();
       return true;
     }
-    _errorMessage = response.errorMessage;
+    _errorMessage = result.error;
     notifyListeners();
     return false;
   }

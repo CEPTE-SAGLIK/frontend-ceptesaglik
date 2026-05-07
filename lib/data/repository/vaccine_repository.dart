@@ -78,6 +78,7 @@ class VaccineRepository extends BaseRepository {
     required bool isChild,
     required String name,
     required DateTime date,
+    String? dose,
     String? frequency,
     String? description,
   }) async {
@@ -85,6 +86,7 @@ class VaccineRepository extends BaseRepository {
       final body = <String, dynamic>{
         'Name': name,
         'Date': date.toIso8601String(),
+        if (dose != null && dose.isNotEmpty) 'Dose': dose,
         if (frequency != null) 'Frequency': frequency,
         if (description != null) 'Description': description,
         'Status': 0,
@@ -104,6 +106,21 @@ class VaccineRepository extends BaseRepository {
         return Result.success(id);
       }
       return Result.failure(response.errorMessage ?? 'Aşı eklenemedi');
+    } catch (e) {
+      return Result.failure(formatError(e));
+    }
+  }
+
+  Future<Result<bool>> updateStatus(String vaccineId, bool completed) async {
+    try {
+      final response = await apiClient.post<dynamic>(
+        '/api/vaccines/$vaccineId/status',
+        body: completed ? 'completed' : 'pending',
+        fromJson: (json) => json,
+      );
+      return response.isSuccess
+          ? Result.success(true)
+          : Result.failure(response.errorMessage ?? 'Durum güncellenemedi');
     } catch (e) {
       return Result.failure(formatError(e));
     }

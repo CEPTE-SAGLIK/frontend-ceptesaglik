@@ -5,6 +5,7 @@ import 'package:health_asistants/core/utils/constants/shadows.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
 import 'package:health_asistants/data/model/child.dart';
 import 'package:health_asistants/data/model/vaccine.dart';
+import 'package:health_asistants/presentation/profile/viewmodel/my_vaccines_viewmodel.dart';
 import 'package:health_asistants/presentation/profile/viewmodel/vaccines_viewmodel.dart';
 
 /// Çocuk Aşı Takip Ekranı
@@ -21,17 +22,24 @@ class MyVaccinesScreen extends StatefulWidget {
   State<MyVaccinesScreen> createState() => _MyVaccinesScreenState();
 }
 
-class _MyVaccinesScreenState extends State<MyVaccinesScreen> {
+class _MyVaccinesScreenState extends State<MyVaccinesScreen>
+    with TickerProviderStateMixin {
+  late final TabController _tabController;
+
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() => setState(() {}));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<VaccinesViewModel>().loadChildren();
+      context.read<MyVaccinesViewModel>().loadVaccines();
     });
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -40,22 +48,44 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // watch ile yeniden çizim tetiklenir
-    final viewModel = context.watch<VaccinesViewModel>();
+    context.watch<VaccinesViewModel>();
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Çocuk Aşı Takibi'),
+        title: const Text('Aşı Takibi'),
         centerTitle: true,
-        actions: [
-          if (viewModel.hasChildren)
-            IconButton(
-              icon: const Icon(Icons.person_add_rounded),
-              tooltip: 'Çocuk Ekle',
-              onPressed: () => _showAddChildDialog(context),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(icon: Icon(Icons.person_outline, size: 16), text: 'Kişisel'),
+            Tab(
+              icon: Icon(Icons.child_care_outlined, size: 16),
+              text: 'Çocuk',
             ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.person_add_rounded),
+            tooltip: _tabController.index == 0 ? 'Yetişkin Ekle' : 'Çocuk Ekle',
+            onPressed: () {
+              if (_tabController.index == 0) {
+                _showAddAdultDialog(context);
+              } else {
+                _showAddChildDialog(context);
+              }
+            },
+          ),
         ],
       ),
-      body: _buildBody(),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          Consumer<MyVaccinesViewModel>(
+            builder: (ctx, vm, _) => _buildPersonalTab(vm),
+          ),
+          _buildBody(),
+        ],
+      ),
     );
   }
 
@@ -464,6 +494,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen> {
   // ─────────────────────────────────────
 
   Widget _buildScheduleCard(BabyVaccineSchedule schedule) {
+    final isManual = schedule.period.trim().toLowerCase() == 'manuel giriş';
     final allDone = schedule.isAllCompleted;
     final isPast = schedule.isPast && !allDone;
     final isUpcoming = schedule.isUpcoming;
@@ -477,8 +508,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen> {
       borderColor = AppColors.info.withValues(alpha: 0.3);
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+    final innerCard = Container(
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
@@ -576,6 +606,52 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen> {
             ),
           ],
         ),
+      ),
+    );
+
+    if (!isManual) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: AppSpacing.md),
+        child: innerCard,
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: Dismissible(
+        key: Key('schedule_${schedule.id}'),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 24),
+          decoration: BoxDecoration(
+            color: AppColors.errorLight,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          ),
+          child: const Icon(Icons.delete_outline, color: AppColors.error, size: 26),
+        ),
+        confirmDismiss: (_) async => await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Manuel Girişi Sil'),
+            content: const Text(
+              'Bu manuel giriş ve içindeki tüm aşılar silinecek. Emin misiniz?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('İptal'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+                child: const Text('Sil'),
+              ),
+            ],
+          ),
+        ) ?? false,
+        onDismissed: (_) => _viewModel.deleteSchedule(schedule.id),
+        child: innerCard,
       ),
     );
   }
@@ -700,17 +776,386 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen> {
 
   Widget _buildAddManualVaccineButton() {
     return OutlinedButton.icon(
-      onPressed: () {
-        if (_viewModel.schedule.isNotEmpty) {
-          _showAddVaccineToScheduleDialog(context, _viewModel.schedule.first);
-        }
-      },
+      onPressed: () => _showManualEntryDialog(context),
       icon: const Icon(Icons.vaccines_rounded),
       label: const Text('Takvime Manuel Aşı Ekle'),
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 14),
         foregroundColor: AppColors.primary,
         side: const BorderSide(color: AppColors.primary),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────
+  // Kişisel Aşı Sekmesi
+  // ─────────────────────────────────────
+
+  Widget _buildPersonalTab(MyVaccinesViewModel vm) {
+    if (vm.status == MyVaccinesStatus.loading ||
+        vm.status == MyVaccinesStatus.initial) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final selected = vm.selectedAdult;
+
+    return Column(
+      children: [
+        if (vm.adultPersons.length > 1) _buildAdultSelector(vm),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: vm.loadVaccines,
+            child: ListView(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _showAddPersonalVaccineDialog(
+                    context,
+                    personId: selected?.id,
+                    vm: vm,
+                  ),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Aşı Ekle'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                if (selected == null || selected.vaccines.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.xxl),
+                      child: Column(
+                        children: [
+                          const Icon(
+                            Icons.vaccines_rounded,
+                            size: 56,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          const Text(
+                            'Henüz kişisel aşı kaydı yok',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          const Text(
+                            'Geçmiş veya planlanan aşılarınızı\nyukarıdaki butona ekleyebilirsiniz.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  ...selected.vaccines.map((v) => _buildPersonalVaccineItem(v, vm)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAdultSelector(MyVaccinesViewModel vm) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.cardBackground,
+        border: Border(bottom: BorderSide(color: AppColors.outline, width: 1)),
+      ),
+      child: SizedBox(
+        height: 48,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: vm.adultPersons.length,
+          separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
+          itemBuilder: (ctx, index) {
+            final person = vm.adultPersons[index];
+            final isSelected = index == vm.selectedAdultIndex;
+            return GestureDetector(
+              onTap: () => vm.selectAdult(person.id),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppColors.primary : AppColors.background,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                  border: Border.all(
+                    color: isSelected
+                        ? AppColors.primary
+                        : AppColors.outlineVariant,
+                    width: isSelected ? 2 : 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.person_outline,
+                      color: isSelected
+                          ? AppColors.textOnPrimary
+                          : AppColors.primary,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${person.name} ${person.surname}'.trim(),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: isSelected
+                            ? AppColors.textOnPrimary
+                            : AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPersonalVaccineItem(Vaccine vaccine, MyVaccinesViewModel vm) {
+    final isCompleted = vaccine.isCompleted;
+    final isOverdue = vaccine.isOverdue;
+
+    return Dismissible(
+      key: Key('pv_${vaccine.id}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+        decoration: BoxDecoration(
+          color: AppColors.errorLight,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        ),
+        child: const Icon(Icons.delete_outline, color: AppColors.error),
+      ),
+      confirmDismiss: (_) async =>
+          await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Aşıyı Sil'),
+              content: Text('${vaccine.name} silinecek. Emin misiniz?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('İptal'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style:
+                      FilledButton.styleFrom(backgroundColor: AppColors.error),
+                  child: const Text('Sil'),
+                ),
+              ],
+            ),
+          ) ??
+          false,
+      onDismissed: (_) => vm.deleteVaccine(vaccine.id),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+        decoration: BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          boxShadow: AppShadows.cardShadow,
+          border: Border.all(
+            color: isCompleted
+                ? AppColors.success.withValues(alpha: 0.3)
+                : isOverdue
+                ? AppColors.error.withValues(alpha: 0.3)
+                : AppColors.outlineVariant,
+          ),
+        ),
+        child: ListTile(
+          leading: InkWell(
+            onTap: () => vm.toggleVaccine(vaccine.id, isCompleted),
+            borderRadius: BorderRadius.circular(20),
+            child: Icon(
+              isCompleted
+                  ? Icons.check_circle
+                  : Icons.radio_button_unchecked,
+              color: isCompleted
+                  ? AppColors.success
+                  : isOverdue
+                  ? AppColors.error
+                  : AppColors.textTertiary,
+              size: 28,
+            ),
+          ),
+          title: Text(
+            vaccine.name,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              decoration: isCompleted ? TextDecoration.lineThrough : null,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          subtitle: Text(
+            '${vaccine.dose.isNotEmpty ? vaccine.dose : "—"} • ${_formatDate(vaccine.date)}',
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          trailing: isCompleted
+              ? const Chip(
+                  label: Text('Yapıldı', style: TextStyle(fontSize: 10)),
+                  backgroundColor: AppColors.successLight,
+                  side: BorderSide.none,
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                )
+              : isOverdue
+              ? const Chip(
+                  label: Text('Gecikmiş', style: TextStyle(fontSize: 10)),
+                  backgroundColor: AppColors.errorLight,
+                  side: BorderSide.none,
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+
+  void _showAddPersonalVaccineDialog(
+    BuildContext context, {
+    required String? personId,
+    required MyVaccinesViewModel vm,
+  }) {
+    if (personId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Kişisel profil bulunamadı. Profil ekranından profilinizi oluşturun.'),
+        ),
+      );
+      return;
+    }
+
+    final nameController = TextEditingController();
+    final doseController = TextEditingController(text: '1. Doz');
+    DateTime selectedDate = DateTime.now();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.vaccines_rounded, color: AppColors.primary),
+              SizedBox(width: 8),
+              Text('Kişisel Aşı Ekle'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Aşı Adı *',
+                    hintText: 'Örn: Tetanoz, Grip Aşısı',
+                    prefixIcon: Icon(Icons.vaccines_outlined),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                TextField(
+                  controller: doseController,
+                  decoration: const InputDecoration(
+                    labelText: 'Doz',
+                    hintText: 'Örn: 1. Doz, Hatırlatma',
+                    prefixIcon: Icon(Icons.looks_one_outlined),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.calendar_today_rounded,
+                    color: AppColors.primary,
+                  ),
+                  title: const Text('Tarih'),
+                  subtitle: Text(
+                    _formatDate(selectedDate),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.edit_calendar_rounded),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: ctx,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now().add(
+                        const Duration(days: 365 * 5),
+                      ),
+                      helpText: 'Aşı tarihini seçin',
+                    );
+                    if (picked != null) {
+                      setDialogState(() => selectedDate = picked);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('İptal'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final name = nameController.text.trim();
+                if (name.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Aşı adını girin')),
+                  );
+                  return;
+                }
+                vm.addNewVaccine(
+                  targetId: personId,
+                  isChild: false,
+                  name: name,
+                  date: selectedDate,
+                  dose: doseController.text.trim(),
+                );
+                Navigator.pop(ctx);
+              },
+              child: const Text('Ekle'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -744,6 +1189,55 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen> {
   // ═══════════════════════════════════════════════════════════════════
   // DIALOGLAR
   // ═══════════════════════════════════════════════════════════════════
+
+  /// Yetişkin Kişi Ekleme Dialog
+  void _showAddAdultDialog(BuildContext context) {
+    final nameController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.person_add_rounded, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text('Yetişkin Ekle'),
+          ],
+        ),
+        content: TextField(
+          controller: nameController,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Ad Soyad *',
+            hintText: 'Örn: Ahmet Yılmaz',
+            prefixIcon: Icon(Icons.person_outline),
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('İptal'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              if (name.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Ad Soyad girin')),
+                );
+                return;
+              }
+              context.read<MyVaccinesViewModel>().addAdultPerson(name);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Ekle'),
+          ),
+        ],
+      ),
+    );
+  }
 
   /// Çocuk Ekleme Dialog
   void _showAddChildDialog(BuildContext context) {
@@ -893,7 +1387,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen> {
     );
   }
 
-  /// Belirli bir döneme aşı ekleme dialog
+  /// Belirli bir takvim dönemine aşı ekleme dialog
   void _showAddVaccineToScheduleDialog(
     BuildContext context,
     BabyVaccineSchedule schedule,
@@ -929,33 +1423,28 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                // Durum seçimi
-                Row(
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     const Text(
                       'Durum:',
                       style: TextStyle(fontWeight: FontWeight.w500),
                     ),
-                    const SizedBox(width: AppSpacing.sm),
                     ChoiceChip(
                       label: const Text('Bekliyor'),
                       selected: initialStatus == VaccineStatus.pending,
-                      onSelected: (_) {
-                        setDialogState(
-                          () => initialStatus = VaccineStatus.pending,
-                        );
-                      },
+                      onSelected: (_) => setDialogState(
+                        () => initialStatus = VaccineStatus.pending,
+                      ),
                     ),
-                    const SizedBox(width: AppSpacing.sm),
                     ChoiceChip(
                       label: const Text('Yapıldı'),
                       selected: initialStatus == VaccineStatus.completed,
                       selectedColor: AppColors.successLight,
-                      onSelected: (_) {
-                        setDialogState(
-                          () => initialStatus = VaccineStatus.completed,
-                        );
-                      },
+                      onSelected: (_) => setDialogState(
+                        () => initialStatus = VaccineStatus.completed,
+                      ),
                     ),
                   ],
                 ),
@@ -977,7 +1466,6 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen> {
                   );
                   return;
                 }
-
                 final vaccine = Vaccine(
                   id: '',
                   name: name,
@@ -988,7 +1476,105 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen> {
                       ? DateTime.now()
                       : null,
                 );
-                _viewModel.addManualVaccine(schedule.id, vaccine);
+                _viewModel.addVaccineToSchedule(schedule.id, vaccine);
+                Navigator.pop(ctx);
+              },
+              child: const Text('Ekle'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Manuel aşı ekleme dialog — tarih seçici ile, "Manuel Giriş" dönemi oluşturur
+  void _showManualEntryDialog(BuildContext context) {
+    final nameController = TextEditingController();
+    DateTime selectedDate = DateTime.now();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Manuel Aşı Ekle'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Aşı Adı *',
+                    hintText: 'Örn: Grip Aşısı',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.calendar_today_rounded,
+                    color: AppColors.primary,
+                  ),
+                  title: const Text('Tarih'),
+                  subtitle: Text(
+                    _formatDate(selectedDate),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.edit_calendar_rounded),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: ctx,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+                      helpText: 'Aşı tarihini seçin',
+                    );
+                    if (picked != null) {
+                      setDialogState(() => selectedDate = picked);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('İptal'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final name = nameController.text.trim();
+                if (name.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Aşı adını girin')),
+                  );
+                  return;
+                }
+                final isCompleted = !selectedDate.isAfter(DateTime.now());
+                final vaccine = Vaccine(
+                  id: '',
+                  name: name,
+                  date: selectedDate,
+                  dose: '1. Doz',
+                  status: isCompleted
+                      ? VaccineStatus.completed
+                      : VaccineStatus.pending,
+                  completedDate: isCompleted ? selectedDate : null,
+                );
+                // Mevcut "Manuel Giriş" varsa ona ekle, yoksa yeni oluştur
+                final existingManuel = _viewModel.schedule
+                    .where((s) => s.period.trim().toLowerCase() == 'manuel giriş')
+                    .firstOrNull;
+                if (existingManuel != null) {
+                  _viewModel.addVaccineToSchedule(existingManuel.id, vaccine);
+                } else if (_viewModel.schedule.isNotEmpty) {
+                  _viewModel.addManualVaccine(_viewModel.schedule.first.id, vaccine);
+                }
                 Navigator.pop(ctx);
               },
               child: const Text('Ekle'),

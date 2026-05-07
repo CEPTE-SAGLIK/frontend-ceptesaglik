@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
 import 'package:health_asistants/core/utils/theme/text_styles.dart';
+import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/presentation/components/custom_button.dart';
 import 'package:health_asistants/presentation/components/custom_input.dart';
 import 'package:health_asistants/presentation/components/custom_selector_field.dart';
@@ -22,7 +23,10 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AddMedicineViewModel>().reset();
+      if (!mounted) return;
+      final vm = context.read<AddMedicineViewModel>();
+      vm.reset();
+      vm.loadPersons();
     });
   }
 
@@ -52,6 +56,10 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
               children: [
                 SizedBox(height: AppSpacing.sm),
                 _buildMedicineNameInput(viewModel),
+                if (viewModel.persons.length > 1) ...[
+                  SizedBox(height: AppSpacing.md),
+                  _buildPersonSelector(viewModel),
+                ],
                 SizedBox(height: AppSpacing.xxl),
                 _buildFrequencyAndTimeRow(viewModel),
                 SizedBox(height: AppSpacing.xxl),
@@ -73,6 +81,103 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildPersonSelector(AddMedicineViewModel viewModel) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: AppSpacing.xs),
+          child: Text(
+            'Kişi',
+            style: AppTextStyles.labelLarge.copyWith(
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 36,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: viewModel.persons.length + 1,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              if (index == viewModel.persons.length) {
+                return GestureDetector(
+                  onTap: () => _showAddPersonDialog(context, viewModel),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.primaryBlue),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.add, size: 16, color: AppColors.primaryBlue),
+                        const SizedBox(width: 4),
+                        Text('Ekle',
+                            style: TextStyle(
+                                fontSize: 13, color: AppColors.primaryBlue)),
+                      ],
+                    ),
+                  ),
+                );
+              }
+              final Person person = viewModel.persons[index];
+              final bool isSelected =
+                  viewModel.selectedPerson?.id == person.id;
+              final bool isSelf = person.id == viewModel.selfPerson?.id;
+              final String label = isSelf ? 'Ben' : person.name;
+              return ChoiceChip(
+                label: Text(label, style: const TextStyle(fontSize: 13)),
+                selected: isSelected,
+                onSelected: (_) => viewModel.selectPerson(person),
+                selectedColor: AppColors.primaryBlue,
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : AppColors.textPrimary,
+                  fontSize: 13,
+                ),
+                side: isSelected
+                    ? BorderSide.none
+                    : const BorderSide(color: Colors.grey),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showAddPersonDialog(
+      BuildContext context, AddMedicineViewModel viewModel) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Kişi Ekle'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'Ad Soyad'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('İptal'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final name = controller.text.trim();
+              Navigator.pop(ctx);
+              if (name.isNotEmpty) await viewModel.addPerson(name);
+            },
+            child: const Text('Ekle'),
+          ),
+        ],
       ),
     );
   }

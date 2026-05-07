@@ -3,8 +3,10 @@ import 'package:health_asistants/core/network/api_client.dart';
 import 'package:health_asistants/data/model/reminder.dart';
 import 'package:health_asistants/data/model/user.dart';
 import 'package:health_asistants/data/repository/base_repository.dart';
+import 'package:health_asistants/data/repository/medicine_repository.dart';
 import 'package:health_asistants/data/repository/reminder_repository.dart';
 import 'package:health_asistants/data/repository/user_repository.dart';
+import 'package:health_asistants/data/repository/vaccine_repository.dart';
 import 'package:health_asistants/presentation/calendar/viewmodel/calendar_viewmodel.dart';
 
 class _StubUserRepository extends UserRepository {
@@ -19,6 +21,15 @@ class _StubUserRepository extends UserRepository {
       ));
 }
 
+class _StubMedicineRepository extends MedicineRepository {
+  _StubMedicineRepository()
+      : super(userRepository: _StubUserRepository());
+}
+
+class _StubVaccineRepository extends VaccineRepository {
+  _StubVaccineRepository() : super();
+}
+
 void main() {
   group('CalendarViewModel', () {
     late CalendarViewModel viewModel;
@@ -28,13 +39,15 @@ void main() {
       repository = ReminderRepository();
       viewModel = CalendarViewModel(
         reminderRepository: repository,
+        medicineRepository: _StubMedicineRepository(),
         userRepository: _StubUserRepository(),
+        vaccineRepository: _StubVaccineRepository(),
       );
     });
 
     test('should start with initial status', () {
       expect(viewModel.status, CalendarStatus.initial);
-      expect(viewModel.events, isEmpty);
+      expect(viewModel.allReminders, isEmpty);
       expect(viewModel.errorMessage, isNull);
     });
 

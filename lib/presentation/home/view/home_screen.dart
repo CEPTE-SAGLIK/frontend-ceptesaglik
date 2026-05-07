@@ -288,7 +288,6 @@ class _HomeScreenState extends State<HomeScreen> {
           EmptyStateWidget.noRemindersToday()
         else
           ...todayReminders
-              .take(4)
               .map(
                 (reminder) => _ReminderTile(
                   key: Key(reminder.id),
@@ -414,14 +413,25 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Reminder> _getAllTodayItems(HomeViewModel viewModel) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    return viewModel.upcomingReminders.where((r) {
-      final reminderDate = DateTime(
-        r.dateTime.year,
-        r.dateTime.month,
-        r.dateTime.day,
-      );
-      return reminderDate == today;
-    }).toList()..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+    return viewModel.upcomingReminders
+        .where((r) => _occursOnDay(r, today))
+        .toList()
+      ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+  }
+
+  bool _occursOnDay(Reminder r, DateTime day) {
+    final start = DateTime(r.dateTime.year, r.dateTime.month, r.dateTime.day);
+    if (day.isBefore(start)) return false;
+    switch (r.repeatType) {
+      case RepeatType.none:
+        return day == start;
+      case RepeatType.daily:
+        return true;
+      case RepeatType.weekly:
+        return day.difference(start).inDays % 7 == 0;
+      case RepeatType.monthly:
+        return day.day == start.day;
+    }
   }
 
   String _getGreeting() {

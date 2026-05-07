@@ -2,6 +2,7 @@ enum FrequencyType {
   daily('Her Gün'),
   everyOtherDay('Gün Aşırı'),
   weekly('Haftada Bir'),
+  monthly('Aylık'),
   custom('Özel');
 
   final String label;

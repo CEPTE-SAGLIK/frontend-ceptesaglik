@@ -51,6 +51,8 @@ class ReminderRepository extends BaseRepository {
         'RepeatType': _repeatToInt(reminder.repeatType),
         'IsActive': reminder.isActive,
         'RelatedItemId': reminder.relatedItemId,
+        'MedicineId': reminder.type == ReminderType.medicine ? reminder.relatedItemId : null,
+        'VaccineId': reminder.type == ReminderType.vaccine ? reminder.relatedItemId : null,
       };
       final response = await apiClient.post<Map<String, dynamic>>(
         ApiEndpoints.reminders,

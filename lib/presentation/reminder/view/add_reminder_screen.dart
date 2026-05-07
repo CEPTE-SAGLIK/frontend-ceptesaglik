@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
 import 'package:health_asistants/core/utils/theme/text_styles.dart';
-import 'package:health_asistants/data/model/reminder.dart';
+import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/presentation/components/custom_button.dart';
 import 'package:health_asistants/presentation/components/custom_text_input.dart';
 import 'package:health_asistants/presentation/components/time_picker_selector.dart';
@@ -21,8 +21,24 @@ class AddReminderScreen extends StatelessWidget {
   }
 }
 
-class _AddReminderContent extends StatelessWidget {
+class _AddReminderContent extends StatefulWidget {
   const _AddReminderContent();
+
+  @override
+  State<_AddReminderContent> createState() => _AddReminderContentState();
+}
+
+class _AddReminderContentState extends State<_AddReminderContent> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final vm = context.read<AddReminderViewModel>();
+      vm.reset();
+      vm.loadPersons();
+    });
+  }
 
   Future<void> _handleSave(
     BuildContext context,
@@ -68,6 +84,12 @@ class _AddReminderContent extends StatelessWidget {
                   onChanged: viewModel.setTitle,
                 ),
 
+                // 1b. KİŞİ SEÇİMİ (birden fazla kişi varsa)
+                if (viewModel.persons.length > 1) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  _buildPersonSelector(viewModel),
+                ],
+
                 const SizedBox(height: AppSpacing.xl),
 
                 // 2. SIKLIK ve SAAT
@@ -75,10 +97,20 @@ class _AddReminderContent extends StatelessWidget {
                   children: [
                     Expanded(
                       child: FrequencySelector(
-                        selectedFrequency: _getFrequencyFromRepeatType(
-                          viewModel.repeatType,
+                        selectedFrequency: _getFrequencyFromLabel(
+                          viewModel.selectedFrequencyLabel,
                         ),
                         onFrequencyChanged: (newFreq) {
+                          if (newFreq == Frequency.other) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Özel sıklık seçeneği yakında eklenecek.',
+                                ),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
                           viewModel.setRepeatTypeFromFrequency(newFreq.label);
                         },
                       ),
@@ -213,16 +245,109 @@ class _AddReminderContent extends StatelessWidget {
     );
   }
 
-  Frequency? _getFrequencyFromRepeatType(RepeatType repeatType) {
-    switch (repeatType) {
-      case RepeatType.daily:
-        return Frequency.onceDaily;
-      case RepeatType.weekly:
-        return Frequency.onceWeekly;
-      case RepeatType.monthly:
-        return Frequency.onceMonthly;
-      case RepeatType.none:
-        return null;
+  Widget _buildPersonSelector(AddReminderViewModel viewModel) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: AppSpacing.xs),
+          child: Text(
+            "Kişi",
+            style: AppTextStyles.labelLarge.copyWith(
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 36,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: viewModel.persons.length + 1,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              if (index == viewModel.persons.length) {
+                return GestureDetector(
+                  onTap: () => _showAddPersonDialog(context, viewModel),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.primaryBlue),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.add, size: 16, color: AppColors.primaryBlue),
+                        const SizedBox(width: 4),
+                        Text('Ekle',
+                            style: TextStyle(
+                                fontSize: 13, color: AppColors.primaryBlue)),
+                      ],
+                    ),
+                  ),
+                );
+              }
+              final Person person = viewModel.persons[index];
+              final bool isSelected =
+                  viewModel.selectedPerson?.id == person.id;
+              final bool isSelf = person.id == viewModel.selfPerson?.id;
+              final String label = isSelf ? 'Ben' : person.name;
+              return ChoiceChip(
+                label: Text(label, style: const TextStyle(fontSize: 13)),
+                selected: isSelected,
+                onSelected: (_) => viewModel.selectPerson(person),
+                selectedColor: AppColors.primaryBlue,
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : AppColors.textPrimary,
+                  fontSize: 13,
+                ),
+                side: isSelected
+                    ? BorderSide.none
+                    : const BorderSide(color: Colors.grey),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showAddPersonDialog(
+      BuildContext context, AddReminderViewModel viewModel) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Kişi Ekle'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'Ad Soyad'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('İptal'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final name = controller.text.trim();
+              Navigator.pop(ctx);
+              if (name.isNotEmpty) await viewModel.addPerson(name);
+            },
+            child: const Text('Ekle'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Frequency? _getFrequencyFromLabel(String? label) {
+    if (label == null) return null;
+    try {
+      return Frequency.values.firstWhere((f) => f.label == label);
+    } catch (_) {
+      return null;
     }
   }
 }

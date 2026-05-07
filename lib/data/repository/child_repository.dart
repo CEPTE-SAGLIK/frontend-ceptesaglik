@@ -171,6 +171,48 @@ class ChildRepository extends BaseRepository {
     }
   }
 
+  Future<Result<Child>> addVaccineToSchedule(
+    String childId,
+    String scheduleId,
+    Vaccine vaccine,
+  ) async {
+    try {
+      final response = await apiClient.post<Map<String, dynamic>>(
+        '${ApiEndpoints.child(childId)}/schedules/$scheduleId/vaccines',
+        body: {
+          'VaccineName': vaccine.name,
+          'Dose': vaccine.dose,
+          'Status': vaccine.status.name,
+          'Date': vaccine.date.toIso8601String(),
+        },
+        fromJson: (json) => json,
+      );
+      if (!response.isSuccess) {
+        return Result.failure(response.errorMessage ?? 'Aşı eklenemedi');
+      }
+      return getById(childId);
+    } catch (e) {
+      return Result.failure(formatError(e));
+    }
+  }
+
+  Future<Result<bool>> deleteSchedule(
+    String childId,
+    String scheduleId,
+  ) async {
+    try {
+      final response = await apiClient.delete<Map<String, dynamic>>(
+        '${ApiEndpoints.child(childId)}/schedules/$scheduleId',
+        fromJson: (json) => json,
+      );
+      return response.isSuccess
+          ? Result.success(true)
+          : Result.failure(response.errorMessage ?? 'Takvim silinemedi');
+    } catch (e) {
+      return Result.failure(formatError(e));
+    }
+  }
+
   Future<Result<Child>> deleteVaccine(
     String childId,
     String scheduleId,

@@ -11,6 +11,7 @@ import 'package:health_asistants/presentation/components/empty_state_widget.dart
 import 'package:health_asistants/presentation/calendar/viewmodel/calendar_viewmodel.dart';
 
 // Model
+import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/data/model/reminder.dart';
 
 // Renkler ve Sabitler
@@ -277,13 +278,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
   }
 
-  void _showAddEventBottomSheet(BuildContext context) {
+  Future<void> _showAddEventBottomSheet(BuildContext context) async {
     final viewModel = context.read<CalendarViewModel>();
+    await viewModel.loadPersons();
+    if (!context.mounted) return;
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
     TimeOfDay selectedTime = TimeOfDay.now();
     int selectedTypeIndex = 0;
     RepeatType selectedRepeatType = RepeatType.none;
+    Person? selectedPerson = viewModel.selfPerson;
 
     showModalBottomSheet(
       context: context,
@@ -417,6 +421,116 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         ),
                       ),
                     ),
+
+                    // Kişi Seçimi (birden fazla kişi varsa)
+                    if (viewModel.persons.length > 1) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        "Kişi",
+                        style: AppTextStyles.labelLarge.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 36,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: viewModel.persons.length + 1,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 8),
+                          itemBuilder: (context, index) {
+                            if (index == viewModel.persons.length) {
+                              return GestureDetector(
+                                onTap: () async {
+                                  final ctrl = TextEditingController();
+                                  final name = await showDialog<String>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text('Kişi Ekle'),
+                                      content: TextField(
+                                        controller: ctrl,
+                                        decoration: const InputDecoration(
+                                            hintText: 'Ad Soyad'),
+                                        autofocus: true,
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(ctx),
+                                          child: const Text('İptal'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(
+                                              ctx, ctrl.text.trim()),
+                                          child: const Text('Ekle'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (name != null && name.isNotEmpty) {
+                                    final newPerson =
+                                        await viewModel.addPerson(name);
+                                    if (newPerson != null) {
+                                      setModalState(
+                                          () => selectedPerson = newPerson);
+                                    }
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                        color: AppColors.primaryBlue),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.add,
+                                          size: 16,
+                                          color: AppColors.primaryBlue),
+                                      const SizedBox(width: 4),
+                                      Text('Ekle',
+                                          style: TextStyle(
+                                              fontSize: 13,
+                                              color: AppColors.primaryBlue)),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
+                            final Person person = viewModel.persons[index];
+                            final bool isSelected =
+                                selectedPerson?.id == person.id;
+                            final bool isSelf =
+                                person.id == viewModel.selfPerson?.id;
+                            final String label = isSelf ? 'Ben' : person.name;
+                            return ChoiceChip(
+                              label: Text(
+                                label,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              selected: isSelected,
+                              onSelected: (_) => setModalState(() {
+                                selectedPerson = person;
+                              }),
+                              selectedColor: AppColors.primaryBlue,
+                              labelStyle: TextStyle(
+                                color: isSelected
+                                    ? Colors.white
+                                    : AppColors.textPrimary,
+                                fontSize: 13,
+                              ),
+                              side: isSelected
+                                  ? BorderSide.none
+                                  : const BorderSide(color: Colors.grey),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
 
                     const SizedBox(height: 16),
 
@@ -553,6 +667,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               viewModel.eventTypes[selectedTypeIndex];
                           final title = titleController.text.trim();
 
+                          final isSelf = selectedPerson == null ||
+                              selectedPerson!.id ==
+                                  viewModel.selfPerson?.id;
+                          final String? personName = isSelf
+                              ? null
+                              : '${selectedPerson!.name} ${selectedPerson!.surname}'
+                                  .trim();
+
                           final success = await viewModel.addEvent(
                             title: title,
                             description:
@@ -562,6 +684,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             type: selectedType.type,
                             time: selectedTime,
                             repeatType: selectedRepeatType,
+                            personName: personName,
+                            targetPersonId:
+                                isSelf ? null : selectedPerson!.id,
                           );
 
                           if (!context.mounted) return;

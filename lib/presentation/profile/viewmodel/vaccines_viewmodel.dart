@@ -254,7 +254,7 @@ class VaccinesViewModel extends ChangeNotifier {
     return false;
   }
 
-  /// Manuel aşı ekle (bir döneme)
+  /// Manuel aşı ekle — yeni "Manuel Giriş" dönemi oluşturur
   Future<bool> addManualVaccine(String scheduleId, Vaccine vaccine) async {
     if (_selectedChild == null) return false;
 
@@ -262,6 +262,43 @@ class VaccinesViewModel extends ChangeNotifier {
       _selectedChild!.id,
       scheduleId,
       vaccine,
+    );
+
+    if (result.isSuccess) {
+      await loadChildren();
+      return true;
+    }
+    _errorMessage = result.error;
+    notifyListeners();
+    return false;
+  }
+
+  /// Mevcut bir takvim dönemine aşı ekle
+  Future<bool> addVaccineToSchedule(String scheduleId, Vaccine vaccine) async {
+    if (_selectedChild == null) return false;
+
+    final result = await _childRepository.addVaccineToSchedule(
+      _selectedChild!.id,
+      scheduleId,
+      vaccine,
+    );
+
+    if (result.isSuccess) {
+      await loadChildren();
+      return true;
+    }
+    _errorMessage = result.error;
+    notifyListeners();
+    return false;
+  }
+
+  /// Manuel Giriş takvim dönemini sil
+  Future<bool> deleteSchedule(String scheduleId) async {
+    if (_selectedChild == null) return false;
+
+    final result = await _childRepository.deleteSchedule(
+      _selectedChild!.id,
+      scheduleId,
     );
 
     if (result.isSuccess) {

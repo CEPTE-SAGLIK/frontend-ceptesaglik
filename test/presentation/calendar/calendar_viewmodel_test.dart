@@ -6,6 +6,7 @@ import 'package:health_asistants/data/repository/base_repository.dart';
 import 'package:health_asistants/data/repository/medicine_repository.dart';
 import 'package:health_asistants/data/repository/reminder_repository.dart';
 import 'package:health_asistants/data/repository/user_repository.dart';
+import 'package:health_asistants/data/repository/vaccine_repository.dart';
 import 'package:health_asistants/presentation/calendar/viewmodel/calendar_viewmodel.dart';
 
 class _StubUserRepository extends UserRepository {
@@ -25,6 +26,10 @@ class _StubMedicineRepository extends MedicineRepository {
       : super(userRepository: _StubUserRepository());
 }
 
+class _StubVaccineRepository extends VaccineRepository {
+  _StubVaccineRepository() : super();
+}
+
 void main() {
   group('CalendarViewModel', () {
     late CalendarViewModel viewModel;
@@ -36,6 +41,7 @@ void main() {
         reminderRepository: repository,
         medicineRepository: _StubMedicineRepository(),
         userRepository: _StubUserRepository(),
+        vaccineRepository: _StubVaccineRepository(),
       );
     });
 

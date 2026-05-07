@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/data/model/reminder.dart';
 import 'package:health_asistants/data/model/medicine.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/data/repository/reminder_repository.dart';
 import 'package:health_asistants/data/repository/medicine_repository.dart';
 import 'package:health_asistants/data/repository/user_repository.dart';
+import 'package:health_asistants/data/repository/vaccine_repository.dart';
 
 /// Takvim etkinlik durumu
 enum CalendarStatus { initial, loading, loaded, error }
@@ -29,6 +31,7 @@ class CalendarViewModel extends ChangeNotifier {
   final ReminderRepository _reminderRepository;
   final MedicineRepository _medicineRepository;
   final UserRepository _userRepository;
+  final VaccineRepository _vaccineRepository;
   final _uuid = const Uuid();
 
   CalendarStatus _status = CalendarStatus.initial;
@@ -42,13 +45,19 @@ class CalendarViewModel extends ChangeNotifier {
   // Tüm etkinlikler (ham liste — tekrar hesabı _occursOnDay ile yapılır)
   final List<Reminder> _allReminders = [];
 
+  // Kişi seçimi (etkinlik eklerken)
+  List<Person> _persons = [];
+  Person? _selfPerson;
+
   CalendarViewModel({
     required ReminderRepository reminderRepository,
     required MedicineRepository medicineRepository,
     required UserRepository userRepository,
+    required VaccineRepository vaccineRepository,
   })  : _reminderRepository = reminderRepository,
         _medicineRepository = medicineRepository,
-        _userRepository = userRepository;
+        _userRepository = userRepository,
+        _vaccineRepository = vaccineRepository;
 
   // Etkinlik türleri
 
@@ -86,6 +95,43 @@ class CalendarViewModel extends ChangeNotifier {
   DateTime get selectedDay => _selectedDay;
   DateTime get focusedDay => _focusedDay;
   List<Reminder> get allReminders => _allReminders;
+  List<Person> get persons => _persons;
+  Person? get selfPerson => _selfPerson;
+
+  Future<void> loadPersons() async {
+    _persons = [];
+    _selfPerson = null;
+    try {
+      final selfResult = await _userRepository.getCurrentPerson();
+      final familyResult = await _userRepository.getFamilyMembers();
+      if (selfResult.isSuccess && selfResult.data != null) {
+        _selfPerson = selfResult.data!;
+        _persons.add(selfResult.data!);
+      }
+      if (familyResult.isSuccess && familyResult.data != null) {
+        _persons.addAll(familyResult.data!);
+      }
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<Person?> addPerson(String name) async {
+    final parts = name.trim().split(' ');
+    final person = Person(
+      id: '', userId: '', name: parts.first,
+      surname: parts.length > 1 ? parts.skip(1).join(' ') : '',
+      birthDate: DateTime(1990, 1, 1), gender: Gender.male,
+    );
+    final result = await _userRepository.addFamilyMember(person);
+    if (result.isSuccess && result.data != null) {
+      await loadPersons();
+      return _persons.firstWhere(
+        (p) => p.id == result.data!.id,
+        orElse: () => result.data!,
+      );
+    }
+    return null;
+  }
 
   /// Seçilen güne ait etkinlikleri döndürür
   List<Reminder> get selectedDayEvents {
@@ -156,6 +202,8 @@ class CalendarViewModel extends ChangeNotifier {
     required ReminderType type,
     required TimeOfDay time,
     RepeatType repeatType = RepeatType.none,
+    String? personName,
+    String? targetPersonId,
   }) async {
     if (_userId == null) {
       final userResult = await _userRepository.getCurrentUser();
@@ -178,10 +226,14 @@ class CalendarViewModel extends ChangeNotifier {
       time.minute,
     );
 
+    final String finalTitle = (personName != null && personName.isNotEmpty)
+        ? '$personName — $title'
+        : title;
+
     final reminder = Reminder(
       id: _uuid.v4(),
       personId: _userId!,
-      title: title,
+      title: finalTitle,
       description: description,
       type: type,
       dateTime: dateTime,
@@ -206,6 +258,21 @@ class CalendarViewModel extends ChangeNotifier {
       final medResult = await _medicineRepository.create(medicine);
       if (medResult.isSuccess) {
         linkedMedicineId = medResult.data?.id;
+      }
+    }
+
+    // Aşı türündeki etkinlikler Vaccine tablosuna da kaydedilsin
+    if (type == ReminderType.vaccine) {
+      final vaccineTargetId = targetPersonId ??
+          (await _userRepository.getCurrentPerson()).data?.id;
+      if (vaccineTargetId != null) {
+        await _vaccineRepository.addVaccine(
+          targetId: vaccineTargetId,
+          isChild: false,
+          name: title,
+          date: dateTime,
+          description: description,
+        );
       }
     }
 

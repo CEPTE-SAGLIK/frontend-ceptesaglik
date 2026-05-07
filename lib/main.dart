@@ -152,14 +152,15 @@ class MyApp extends StatelessWidget {
           update: (_, __, ___, ____, _____, vm) => vm!,
         ),
 
-        ChangeNotifierProxyProvider3<ReminderRepository, UserRepository,
-            MedicineRepository, AddReminderViewModel>(
+        ChangeNotifierProxyProvider4<ReminderRepository, UserRepository,
+            MedicineRepository, VaccineRepository, AddReminderViewModel>(
           create: (ctx) => AddReminderViewModel(
             reminderRepository: ctx.read<ReminderRepository>(),
             userRepository: ctx.read<UserRepository>(),
             medicineRepository: ctx.read<MedicineRepository>(),
+            vaccineRepository: ctx.read<VaccineRepository>(),
           ),
-          update: (_, __, ___, ____, vm) => vm!,
+          update: (_, __, ___, ____, _____, vm) => vm!,
         ),
         ChangeNotifierProxyProvider2<ReminderRepository, UserRepository,
             ReminderListViewModel>(
@@ -169,21 +170,24 @@ class MyApp extends StatelessWidget {
           ),
           update: (_, __, ___, vm) => vm!,
         ),
-        ChangeNotifierProxyProvider3<ReminderRepository, UserRepository,
-            MedicineRepository, CalendarViewModel>(
+        ChangeNotifierProxyProvider4<ReminderRepository, UserRepository,
+            MedicineRepository, VaccineRepository, CalendarViewModel>(
           create: (ctx) => CalendarViewModel(
             reminderRepository: ctx.read<ReminderRepository>(),
             medicineRepository: ctx.read<MedicineRepository>(),
             userRepository: ctx.read<UserRepository>(),
+            vaccineRepository: ctx.read<VaccineRepository>(),
           ),
-          update: (_, __, ___, ____, vm) => vm!,
+          update: (_, __, ___, ____, _____, vm) => vm!,
         ),
 
-        ChangeNotifierProxyProvider<MedicineRepository, AddMedicineViewModel>(
+        ChangeNotifierProxyProvider2<MedicineRepository, UserRepository,
+            AddMedicineViewModel>(
           create: (ctx) => AddMedicineViewModel(
             medicineRepository: ctx.read<MedicineRepository>(),
+            userRepository: ctx.read<UserRepository>(),
           ),
-          update: (_, __, vm) => vm!,
+          update: (_, __, ___, vm) => vm!,
         ),
         ChangeNotifierProxyProvider<MedicineRepository, MedicineListViewModel>(
           create: (ctx) =>
@@ -224,13 +228,14 @@ class MyApp extends StatelessWidget {
           ),
           update: (_, __, ___, vm) => vm!,
         ),
-        ChangeNotifierProxyProvider2<VaccineRepository, UserRepository,
-            MyVaccinesViewModel>(
+        ChangeNotifierProxyProvider3<VaccineRepository, UserRepository,
+            ReminderRepository, MyVaccinesViewModel>(
           create: (ctx) => MyVaccinesViewModel(
             vaccineRepository: ctx.read<VaccineRepository>(),
             userRepository: ctx.read<UserRepository>(),
+            reminderRepository: ctx.read<ReminderRepository>(),
           ),
-          update: (_, __, ___, vm) => vm!,
+          update: (_, __, ___, ____, vm) => vm!,
         ),
         ChangeNotifierProxyProvider3<
           GeminiRepository,

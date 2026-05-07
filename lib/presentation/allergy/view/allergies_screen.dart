@@ -106,10 +106,12 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
       ),
       body: Consumer<AllergyViewModel>(
         builder: (context, viewModel, child) {
-          if (viewModel.isLoading)
+          if (viewModel.isLoading) {
             return const Center(child: CircularProgressIndicator());
-          if (viewModel.allergies.isEmpty)
+          }
+          if (viewModel.allergies.isEmpty) {
             return const Center(child: Text('Alerji bulunamadı.'));
+          }
 
           return ListView.builder(
             itemCount: viewModel.allergies.length,

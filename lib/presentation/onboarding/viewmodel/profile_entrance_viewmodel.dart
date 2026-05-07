@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 import 'package:health_asistants/data/model/person.dart';
-import 'package:health_asistants/data/model/allergy.dart';
-import 'package:health_asistants/data/model/illness.dart';
 import 'package:health_asistants/data/repository/auth_repository.dart';
 import 'package:health_asistants/data/repository/person_repository.dart';
 
@@ -36,8 +33,6 @@ enum AllergyType {
 class ProfileEntranceViewModel extends ChangeNotifier {
   final PersonRepository _personRepository;
   final AuthRepository _authRepository;
-  final _uuid = const Uuid();
-
   // Controllers
   final heightController = TextEditingController(text: '158');
   final weightController = TextEditingController(text: '50');

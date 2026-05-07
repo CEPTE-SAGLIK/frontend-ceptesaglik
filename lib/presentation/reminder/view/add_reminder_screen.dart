@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
@@ -182,7 +182,7 @@ class _AddReminderContentState extends State<_AddReminderContent> {
                             Container(
                               padding: const EdgeInsets.all(AppSpacing.sm),
                               decoration: BoxDecoration(
-                                color: type.color.withOpacity(0.1),
+                                color: type.color.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
@@ -351,3 +351,4 @@ class _AddReminderContentState extends State<_AddReminderContent> {
     }
   }
 }
+

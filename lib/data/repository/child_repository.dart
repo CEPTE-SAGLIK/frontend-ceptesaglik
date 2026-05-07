@@ -8,10 +8,9 @@ class ChildRepository extends BaseRepository {
   final UserRepository? _userRepository;
 
   ChildRepository({
-    ApiClient? apiClient,
+    super.apiClient,
     UserRepository? userRepository,
-  })  : _userRepository = userRepository,
-        super(apiClient: apiClient);
+  }) : _userRepository = userRepository;
 
   // ─────────────────────────────────────
   // Çocuk CRUD

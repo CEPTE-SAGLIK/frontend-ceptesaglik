@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:health_asistants/data/model/reminder.dart';
@@ -208,7 +208,7 @@ class _ReminderCard extends StatelessWidget {
         onDismissed: (_) => onDelete(),
         child: ListTile(
           leading: CircleAvatar(
-            backgroundColor: _getTypeColor(reminder.type).withOpacity(0.2),
+            backgroundColor: _getTypeColor(reminder.type).withValues(alpha: 0.2),
             child: Icon(
               _getTypeIcon(reminder.type),
               color: _getTypeColor(reminder.type),
@@ -281,3 +281,4 @@ class _ReminderCard extends StatelessWidget {
     }
   }
 }
+

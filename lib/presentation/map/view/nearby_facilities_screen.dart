@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
@@ -187,7 +187,7 @@ class _FacilityCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -200,7 +200,7 @@ class _FacilityCard extends StatelessWidget {
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: _getIconColor().withOpacity(0.15),
+              color: _getIconColor().withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: Icon(_getIcon(), color: _getIconColor()),
@@ -308,3 +308,4 @@ class _FacilityCard extends StatelessWidget {
     }
   }
 }
+

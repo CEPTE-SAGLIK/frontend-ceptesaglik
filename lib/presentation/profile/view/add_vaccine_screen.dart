@@ -51,7 +51,7 @@ class _AddVaccineScreenState extends State<AddVaccineScreen> {
                   style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _selectedPersonId,
+                initialValue: _selectedPersonId,
                 hint: const Text('Bir kişi seçin'),
                 items: viewModel.peopleWithVaccines.map((p) {
                   return DropdownMenuItem<String>(
@@ -88,7 +88,7 @@ class _AddVaccineScreenState extends State<AddVaccineScreen> {
                   style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _selectedFrequency,
+                initialValue: _selectedFrequency,
                 items: _frequencies.map((f) {
                   return DropdownMenuItem(value: f, child: Text(f));
                 }).toList(),
@@ -155,7 +155,7 @@ class _AddVaccineScreenState extends State<AddVaccineScreen> {
                               description: _descController.text,
                             );
 
-                            if (!mounted) return;
+                            if (!context.mounted) return;
                             if (success) {
                               Navigator.pop(context);
                               ScaffoldMessenger.of(context).showSnackBar(

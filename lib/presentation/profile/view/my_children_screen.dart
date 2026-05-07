@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
@@ -62,7 +62,7 @@ class _MyChildrenScreenState extends State<MyChildrenScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.child_care,
-              size: 64, color: AppColors.primaryBlue.withOpacity(0.3)),
+              size: 64, color: AppColors.primaryBlue.withValues(alpha: 0.3)),
           const SizedBox(height: 16),
           Text('Henüz bir çocuk kaydı yok', style: AppTextStyles.bodyMedium),
           const SizedBox(height: 16),
@@ -93,7 +93,7 @@ class _MyChildrenScreenState extends State<MyChildrenScreen> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4))
             ],
@@ -101,7 +101,7 @@ class _MyChildrenScreenState extends State<MyChildrenScreen> {
           child: Row(
             children: [
               CircleAvatar(
-                backgroundColor: AppColors.primaryBlue.withOpacity(0.1),
+                backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.1),
                 child: Text(
                   person.name.isNotEmpty ? person.name[0].toUpperCase() : '?',
                   style: const TextStyle(
@@ -251,3 +251,4 @@ class _MyChildrenScreenState extends State<MyChildrenScreen> {
     );
   }
 }
+

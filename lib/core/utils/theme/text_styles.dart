@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../constants/colors.dart';
 
 /// Uygulama genelinde kullanılan metin stilleri.
@@ -145,7 +145,7 @@ class AppTextStyles {
   static TextStyle inputHint = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.normal,
-    color: AppColors.textSecondary.withOpacity(0.5),
+    color: AppColors.textSecondary.withValues(alpha: 0.5),
   );
 
   static const TextStyle inputLabel = TextStyle(
@@ -215,3 +215,4 @@ class AppTextStyles {
     color: AppColors.secondary,
   );
 }
+

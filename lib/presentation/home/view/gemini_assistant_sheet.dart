@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
-import 'package:health_asistants/core/utils/theme/text_styles.dart';
 import 'package:health_asistants/presentation/home/viewmodel/gemini_viewmodel.dart';
 import 'package:health_asistants/presentation/home/viewmodel/home_viewmodel.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -26,7 +25,7 @@ class _GeminiAssistantSheetState extends State<GeminiAssistantSheet> {
             if (mounted) setState(() => _isListening = false);
           }
         },
-        onError: (val) => print('onError: $val'),
+        onError: (val) => debugPrint('onError: $val'),
       );
       if (available) {
         setState(() => _isListening = true);
@@ -152,7 +151,6 @@ class _GeminiAssistantSheetState extends State<GeminiAssistantSheet> {
 
       case GeminiStatus.saved:
       case GeminiStatus.initial:
-      default:
         return _buildInput(viewModel);
     }
   }

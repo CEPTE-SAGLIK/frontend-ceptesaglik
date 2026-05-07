@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
@@ -68,7 +68,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   children: [
                     CircleAvatar(
                       radius: 50,
-                      backgroundColor: AppColors.primaryBlue.withOpacity(0.1),
+                      backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.1),
                       child: Text(
                         _getInitials(),
                         style: TextStyle(
@@ -280,3 +280,4 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 }
+

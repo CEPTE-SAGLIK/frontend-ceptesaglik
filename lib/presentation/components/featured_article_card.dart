@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/shadows.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
@@ -47,7 +47,7 @@ class FeaturedArticleCard extends StatelessWidget {
                 child: Text(
                   imageTitle ?? "",
                   style: AppTextStyles.headingMedium.copyWith(
-                    color: AppColors.white.withOpacity(0.9),
+                    color: AppColors.white.withValues(alpha: 0.9),
                   ),
                 ),
               ),
@@ -65,3 +65,4 @@ class FeaturedArticleCard extends StatelessWidget {
     );
   }
 }
+

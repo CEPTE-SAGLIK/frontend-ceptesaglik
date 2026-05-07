@@ -2,8 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/data/model/allergy.dart';
 import 'package:health_asistants/data/model/illness.dart';
-import 'package:health_asistants/data/model/medicine.dart';
-import 'package:health_asistants/data/model/vaccine.dart';
 
 void main() {
   group('Gender Enum', () {

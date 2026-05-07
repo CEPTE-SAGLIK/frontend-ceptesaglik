@@ -7,6 +7,7 @@ import 'package:health_asistants/data/repository/person_repository.dart';
 import 'package:health_asistants/data/repository/user_repository.dart';
 import 'package:health_asistants/presentation/profile/viewmodel/profile_viewmodel.dart';
 
+// ignore: unused_element
 class _ErrorResponse {
   final String message;
   _ErrorResponse(this.message);

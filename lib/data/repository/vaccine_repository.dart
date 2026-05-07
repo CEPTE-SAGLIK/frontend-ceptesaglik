@@ -6,7 +6,7 @@ import 'package:health_asistants/data/repository/base_repository.dart';
 class VaccineRepository extends BaseRepository {
   VaccineRepository({super.apiClient});
 
-  /// /api/children/{childId}/vaccines → ApiResponse<List<VaccineScheduleDto>>
+  /// /api/children/{childId}/vaccines → `ApiResponse<List<VaccineScheduleDto>>`
   /// Schedules içinden tüm Vaccine'leri flat olarak döner.
   Future<Result<List<Vaccine>>> getByChildId(String childId) async {
     try {
@@ -35,8 +35,8 @@ class VaccineRepository extends BaseRepository {
     }
   }
 
-  /// /api/Vaccines/child/{id}  → raw List<VaccineScheduleDto>  (not wrapped)
-  /// /api/Vaccines/person/{id} → raw List<VaccineDto>          (not wrapped)
+  /// /api/Vaccines/child/{id}  → raw `List<VaccineScheduleDto>` (not wrapped)
+  /// /api/Vaccines/person/{id} → raw `List<VaccineDto>`         (not wrapped)
   Future<Result<List<Vaccine>>> getVaccinesForTarget(
       String id, bool isChild) async {
     try {
@@ -140,7 +140,7 @@ class VaccineRepository extends BaseRepository {
     }
   }
 
-  /// /api/children/standard-schedule → ApiResponse<List<VaccineScheduleDto>>
+  /// /api/children/standard-schedule → `ApiResponse<List<VaccineScheduleDto>>`
   Future<Result<List<VaccineSchedule>>> getStandardSchedule(
       {DateTime? birthDate}) async {
     try {

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
 import 'package:health_asistants/core/utils/theme/text_styles.dart';
@@ -29,7 +29,7 @@ class CustomButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final bgColor = backgroundColor ?? AppColors.secondary;
     final handler = disabled ? null : onPressed;
-    final color = disabled ? bgColor.withOpacity(0.5) : bgColor;
+    final color = disabled ? bgColor.withValues(alpha: 0.5) : bgColor;
 
     return SizedBox(
       width: width ?? 180,
@@ -65,3 +65,4 @@ class CustomButton extends StatelessWidget {
     );
   }
 }
+

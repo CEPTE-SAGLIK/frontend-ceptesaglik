@@ -15,10 +15,9 @@ class UserRepository extends BaseRepository {
   Person? _currentPerson;
   final List<Person> _familyMembers = [];
 
-  UserRepository({ApiClient? apiClient, PersonRepository? personRepository})
+  UserRepository({super.apiClient, PersonRepository? personRepository})
       : _personRepository =
-            personRepository ?? PersonRepository(apiClient: apiClient),
-        super(apiClient: apiClient);
+            personRepository ?? PersonRepository(apiClient: apiClient);
 
   Future<Result<User>> getCurrentUser() async {
     try {

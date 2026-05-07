@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/shadows.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
@@ -54,7 +54,7 @@ class ProfileCard extends StatelessWidget {
                   Text(
                     email!,
                     style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.black.withOpacity(0.6),
+                      color: AppColors.black.withValues(alpha: 0.6),
                     ),
                   ),
               ],
@@ -83,3 +83,4 @@ class ProfileCard extends StatelessWidget {
     );
   }
 }
+

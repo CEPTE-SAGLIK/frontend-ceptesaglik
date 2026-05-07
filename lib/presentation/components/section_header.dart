@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
 import 'package:health_asistants/core/utils/theme/text_styles.dart';
@@ -16,7 +16,7 @@ class SectionHeader extends StatelessWidget {
         Text(title, style: AppTextStyles.sectionHeader),
         const SizedBox(height: AppSpacing.xs),
         Divider(
-          color: AppColors.textSecondary.withOpacity(0.3),
+          color: AppColors.textSecondary.withValues(alpha: 0.3),
           thickness: 1.5,
         ),
         const SizedBox(height: AppSpacing.sm),
@@ -24,3 +24,4 @@ class SectionHeader extends StatelessWidget {
     );
   }
 }
+

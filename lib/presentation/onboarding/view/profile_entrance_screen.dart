@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Klavye kontrolü için
 import 'package:health_asistants/presentation/onboarding/viewmodel/profile_entrance_viewmodel.dart';
 import 'package:provider/provider.dart';
@@ -102,7 +102,7 @@ class ProfileEntranceScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppColors.black.withOpacity(0.03),
+            color: AppColors.black.withValues(alpha: 0.03),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -194,7 +194,7 @@ class ProfileEntranceScreen extends StatelessWidget {
                   border: Border.all(color: AppColors.outline),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.black.withOpacity(0.02),
+                      color: AppColors.black.withValues(alpha: 0.02),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -348,9 +348,9 @@ class ProfileEntranceScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.primaryBlue.withOpacity(0.04),
+        color: AppColors.primaryBlue.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.primaryBlue.withOpacity(0.1)),
+        border: Border.all(color: AppColors.primaryBlue.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -473,3 +473,4 @@ class ProfileEntranceScreen extends StatelessWidget {
     }
   }
 }
+

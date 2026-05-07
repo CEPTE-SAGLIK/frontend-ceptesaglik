@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
 
@@ -127,7 +127,7 @@ class EmptyStateWidget extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.outline.withOpacity(0.5)),
+        border: Border.all(color: AppColors.outline.withValues(alpha: 0.5)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -160,7 +160,7 @@ class EmptyStateWidget extends StatelessWidget {
           Icon(
             icon,
             size: 48,
-            color: (iconColor ?? AppColors.textSecondary).withOpacity(0.6),
+            color: (iconColor ?? AppColors.textSecondary).withValues(alpha: 0.6),
           ),
           SizedBox(height: AppSpacing.md),
           _buildTitle(),
@@ -203,7 +203,7 @@ class EmptyStateWidget extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         shape: BoxShape.circle,
       ),
       child: Icon(icon, size: size * 0.5, color: color),
@@ -261,3 +261,4 @@ enum EmptyStateStyle {
   /// Tam sayfa gösterim
   fullPage,
 }
+

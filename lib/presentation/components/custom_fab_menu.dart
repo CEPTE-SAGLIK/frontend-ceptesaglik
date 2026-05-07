@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
 import 'dart:math' as math;
@@ -190,7 +190,7 @@ class _CustomFabMenuState extends State<CustomFabMenu>
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(0.4),
+                color: color.withValues(alpha: 0.4),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -202,3 +202,4 @@ class _CustomFabMenuState extends State<CustomFabMenu>
     );
   }
 }
+

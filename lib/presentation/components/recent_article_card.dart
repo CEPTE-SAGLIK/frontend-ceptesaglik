@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
 import 'package:health_asistants/core/utils/theme/text_styles.dart';
@@ -39,7 +39,7 @@ class RecentArticleCard extends StatelessWidget {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: boxColor.withOpacity(0.3),
+                color: boxColor.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               ),
               alignment: Alignment.center,
@@ -86,3 +86,4 @@ class RecentArticleCard extends StatelessWidget {
     );
   }
 }
+

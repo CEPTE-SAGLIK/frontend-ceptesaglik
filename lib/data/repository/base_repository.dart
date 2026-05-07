@@ -32,14 +32,16 @@ class Result<T> {
 
   /// Başarılı ise veriyi döndür, değilse hata fırlat
   T get dataOrThrow {
-    if (isSuccess && data != null) return data!;
+    final d = data;
+    if (isSuccess && d != null) return d as T;
     throw Exception(error ?? 'Bilinmeyen hata');
   }
 
   /// Map fonksiyonu
   Result<R> map<R>(R Function(T) mapper) {
-    if (isSuccess && data != null) {
-      return Result.success(mapper(data!));
+    final d = data;
+    if (isSuccess && d != null) {
+      return Result.success(mapper(d as T));
     }
     return Result.failure(error ?? 'Bilinmeyen hata');
   }

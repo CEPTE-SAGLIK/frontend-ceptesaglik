@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
@@ -419,7 +419,7 @@ class _MedicineCard extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: AppColors.catMedicine.withOpacity(0.2),
+              color: AppColors.catMedicine.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(Icons.medication, color: AppColors.catMedicine),
@@ -502,7 +502,7 @@ class _MedicineDetailSheet extends StatelessWidget {
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      color: AppColors.catMedicine.withOpacity(0.2),
+                      color: AppColors.catMedicine.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: const Icon(
@@ -530,8 +530,8 @@ class _MedicineDetailSheet extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: _isActive
-                                ? Colors.green.withOpacity(0.1)
-                                : Colors.grey.withOpacity(0.1),
+                                ? Colors.green.withValues(alpha: 0.1)
+                                : Colors.grey.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -652,3 +652,4 @@ class _DetailItem extends StatelessWidget {
     );
   }
 }
+

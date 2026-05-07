@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/shadows.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
@@ -56,7 +56,7 @@ class ReminderBox extends StatelessWidget {
                     style: AppTextStyles.cardBody.copyWith(
                       color: isWhiteBg
                           ? AppColors.textSecondary
-                          : AppColors.white.withOpacity(0.9),
+                          : AppColors.white.withValues(alpha: 0.9),
                     ),
                   ),
                 ],
@@ -68,3 +68,4 @@ class ReminderBox extends StatelessWidget {
     );
   }
 }
+

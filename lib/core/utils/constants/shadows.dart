@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'colors.dart';
 
 /// Uygulama genelinde kullanılan gölge stilleri.
@@ -12,7 +12,7 @@ class AppShadows {
 
   static List<BoxShadow> get cardShadow => [
     BoxShadow(
-      color: AppColors.black.withOpacity(0.05),
+      color: AppColors.black.withValues(alpha: 0.05),
       blurRadius: 10,
       offset: const Offset(0, 4),
     ),
@@ -28,7 +28,7 @@ class AppShadows {
 
   static List<BoxShadow> get cardShadowMedium => [
     BoxShadow(
-      color: Colors.grey.withOpacity(0.1),
+      color: Colors.grey.withValues(alpha: 0.1),
       blurRadius: 10,
       offset: const Offset(0, 5),
     ),
@@ -40,7 +40,7 @@ class AppShadows {
 
   static List<BoxShadow> get buttonShadow => [
     BoxShadow(
-      color: Colors.blue.withOpacity(0.3),
+      color: Colors.blue.withValues(alpha: 0.3),
       blurRadius: 8,
       offset: const Offset(0, 4),
     ),
@@ -48,7 +48,7 @@ class AppShadows {
 
   static List<BoxShadow> get emergencyButtonShadow => [
     BoxShadow(
-      color: Colors.red.withOpacity(0.4),
+      color: Colors.red.withValues(alpha: 0.4),
       blurRadius: 15,
       offset: const Offset(0, 5),
     ),
@@ -72,7 +72,7 @@ class AppShadows {
 
   static List<BoxShadow> get soft => [
     BoxShadow(
-      color: Colors.grey.withOpacity(0.08),
+      color: Colors.grey.withValues(alpha: 0.08),
       blurRadius: 12,
       offset: const Offset(0, 4),
     ),
@@ -80,7 +80,7 @@ class AppShadows {
 
   static List<BoxShadow> get softer => [
     BoxShadow(
-      color: Colors.grey.withOpacity(0.08),
+      color: Colors.grey.withValues(alpha: 0.08),
       blurRadius: 15,
       offset: const Offset(0, 5),
     ),
@@ -92,3 +92,4 @@ class AppShadows {
 
   static List<BoxShadow> get none => [];
 }
+

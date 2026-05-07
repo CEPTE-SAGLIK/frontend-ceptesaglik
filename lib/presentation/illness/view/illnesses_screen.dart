@@ -148,14 +148,17 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
       ),
       body: Consumer<IllnessViewModel>(
         builder: (context, viewModel, child) {
-          if (viewModel.isLoading)
+          if (viewModel.isLoading) {
             return const Center(child: CircularProgressIndicator());
-          if (viewModel.errorMessage != null)
+          }
+          if (viewModel.errorMessage != null) {
             return Center(child: Text(viewModel.errorMessage!));
-          if (viewModel.illnesses.isEmpty)
+          }
+          if (viewModel.illnesses.isEmpty) {
             return const Center(
               child: Text('Henüz bir hastalık kaydı bulunamadı.'),
             );
+          }
 
           return ListView.builder(
             itemCount: viewModel.illnesses.length,

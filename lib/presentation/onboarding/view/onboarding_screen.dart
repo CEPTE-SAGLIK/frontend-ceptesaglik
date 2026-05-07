@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:health_asistants/presentation/onboarding/viewmodel/onboarding_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -131,7 +131,7 @@ class OnboardingScreen extends StatelessWidget {
               height: 250, // Resim boyutu
               width: double.infinity,
               decoration: BoxDecoration(
-                color: content.iconColor.withOpacity(0.05),
+                color: content.iconColor.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(30),
               ),
               child: Padding(
@@ -204,3 +204,4 @@ class OnboardingScreen extends StatelessWidget {
     );
   }
 }
+

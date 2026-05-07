@@ -15,6 +15,7 @@ import 'package:health_asistants/data/repository/reminder_repository.dart';
 import 'package:health_asistants/data/repository/medicine_repository.dart';
 import 'package:health_asistants/data/repository/child_repository.dart';
 import 'package:health_asistants/data/repository/vaccine_repository.dart';
+import 'package:health_asistants/data/repository/illness_repository.dart';
 import 'package:health_asistants/data/repository/gemini_repository.dart';
 import 'package:health_asistants/presentation/auth/login/viewmodel/login_viewmodel.dart';
 import 'package:health_asistants/presentation/auth/register/viewmodel/register_viewmodel.dart';
@@ -95,6 +96,13 @@ class MyApp extends StatelessWidget {
         Provider<GeminiRepository>(
           create: (ctx) => GeminiRepository(apiClient: ctx.read<ApiClient>()),
         ),
+        ProxyProvider2<ApiClient, UserRepository, IllnessRepository>(
+          create: (ctx) => IllnessRepository(
+            apiClient: ctx.read<ApiClient>(),
+            userRepository: ctx.read<UserRepository>(),
+          ),
+          update: (_, __, ___, previous) => previous!,
+        ),
 
         // ── Auth ViewModels ──
         ChangeNotifierProxyProvider<AuthRepository, LoginViewModel>(
@@ -107,12 +115,11 @@ class MyApp extends StatelessWidget {
               RegisterViewModel(authRepository: ctx.read<AuthRepository>()),
           update: (_, __, vm) => vm!,
         ),
-        ChangeNotifierProxyProvider2<ApiClient, UserRepository, IllnessViewModel>(
+        ChangeNotifierProxyProvider<IllnessRepository, IllnessViewModel>(
           create: (ctx) => IllnessViewModel(
-            apiClient: ctx.read<ApiClient>(),
-            userRepository: ctx.read<UserRepository>(),
+            repository: ctx.read<IllnessRepository>(),
           ),
-          update: (_, __, ___, vm) => vm!,
+          update: (_, __, vm) => vm!,
         ),
         ChangeNotifierProxyProvider2<ApiClient, UserRepository, AllergyViewModel>(
           create: (ctx) => AllergyViewModel(

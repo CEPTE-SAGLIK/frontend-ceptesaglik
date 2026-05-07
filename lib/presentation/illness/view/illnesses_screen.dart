@@ -1,6 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:health_asistants/data/model/illness.dart';
 import 'package:health_asistants/presentation/illness/viewmodel/illness_viewmodel.dart';
+
+String _statusLabel(IllnessStatus status) {
+  switch (status) {
+    case IllnessStatus.active:
+      return 'Aktif';
+    case IllnessStatus.recovered:
+      return 'İyileşti';
+    case IllnessStatus.monitoring:
+      return 'Takipte';
+  }
+}
+
+Color _statusColor(IllnessStatus status) {
+  switch (status) {
+    case IllnessStatus.active:
+      return Colors.red;
+    case IllnessStatus.recovered:
+      return Colors.green;
+    case IllnessStatus.monitoring:
+      return Colors.orange;
+  }
+}
 
 class IllnessesScreen extends StatefulWidget {
   const IllnessesScreen({super.key});
@@ -56,79 +79,91 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
     );
   }
 
-  // --- 2. EKLEME PENCERESİ (ESKİSİYLE AYNI) ---
+  // --- 2. EKLEME PENCERESİ ---
   void _showAddIllnessDialog(BuildContext context) {
     final nameController = TextEditingController();
-    final statusController = TextEditingController();
     final notesController = TextEditingController();
+    IllnessStatus selectedStatus = IllnessStatus.active;
 
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text(
-            'Yeni Hastalık Ekle',
-            style: TextStyle(color: Colors.teal),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Hastalık Adı (Örn: Grip)',
-                    border: OutlineInputBorder(),
-                  ),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              title: const Text(
+                'Yeni Hastalık Ekle',
+                style: TextStyle(color: Colors.teal),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Hastalık Adı (Örn: Grip)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<IllnessStatus>(
+                      initialValue: selectedStatus,
+                      decoration: const InputDecoration(
+                        labelText: 'Durum',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: IllnessStatus.values
+                          .map((s) => DropdownMenuItem(
+                                value: s,
+                                child: Text(_statusLabel(s)),
+                              ))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) selectedStatus = v;
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: notesController,
+                      decoration: const InputDecoration(
+                        labelText: 'Doktor Notları (İsteğe Bağlı)',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 2,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: statusController,
-                  decoration: const InputDecoration(
-                    labelText: 'Durumu (Örn: Aktif, Tedavi Edildi)',
-                    border: OutlineInputBorder(),
-                  ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('İptal'),
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: notesController,
-                  decoration: const InputDecoration(
-                    labelText: 'Doktor Notları (İsteğe Bağlı)',
-                    border: OutlineInputBorder(),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                  onPressed: () async {
+                    if (nameController.text.isNotEmpty) {
+                      final success = await context
+                          .read<IllnessViewModel>()
+                          .addIllness(
+                            nameController.text,
+                            selectedStatus.name,
+                            notesController.text.isEmpty
+                                ? null
+                                : notesController.text,
+                          );
+                      if (success && context.mounted) Navigator.pop(dialogContext);
+                    }
+                  },
+                  child: const Text(
+                    'Kaydet',
+                    style: TextStyle(color: Colors.white),
                   ),
-                  maxLines: 2,
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('İptal'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
-              onPressed: () async {
-                if (nameController.text.isNotEmpty &&
-                    statusController.text.isNotEmpty) {
-                  final success = await context
-                      .read<IllnessViewModel>()
-                      .addIllness(
-                        nameController.text,
-                        statusController.text,
-                        notesController.text.isEmpty
-                            ? null
-                            : notesController.text,
-                      );
-                  if (success && context.mounted) Navigator.pop(context);
-                }
-              },
-              child: const Text(
-                'Kaydet',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
+            );
+          },
         );
       },
     );
@@ -175,8 +210,33 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
                     illness.name,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  subtitle: Text(
-                    'Not: ${illness.doctorNotes ?? "Belirtilmedi"}',
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('Durum: ', style: TextStyle(fontWeight: FontWeight.w500)),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: _statusColor(illness.status).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _statusLabel(illness.status),
+                              style: TextStyle(
+                                color: _statusColor(illness.status),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (illness.doctorNotes != null)
+                        Text('Not: ${illness.doctorNotes}',
+                            style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    ],
                   ),
 
                   // --- BURAYI DEĞİŞTİRDİK: HEM TARİH HEM SİLME BUTONU ---

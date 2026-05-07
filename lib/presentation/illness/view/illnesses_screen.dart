@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:health_asistants/data/model/illness.dart';
+import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/presentation/illness/viewmodel/illness_viewmodel.dart';
 
 String _statusLabel(IllnessStatus status) {
@@ -37,12 +38,11 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<IllnessViewModel>().fetchIllnesses();
+      context.read<IllnessViewModel>().loadPersons();
     });
   }
 
-  // --- 1. SİLME ONAY KUTUSU (YENİ) ---
-  void _showDeleteConfirmation(BuildContext context, dynamic id, String name) {
+  void _showDeleteConfirmation(BuildContext context, String id, String name) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -58,12 +58,10 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              // ViewModel'deki delete fonksiyonunu çağırıyoruz
-              final success = await context
-                  .read<IllnessViewModel>()
-                  .deleteIllness(id);
+              final success =
+                  await context.read<IllnessViewModel>().deleteIllness(id);
               if (success && context.mounted) {
-                Navigator.pop(context); // Dialog'u kapat
+                Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Kayıt başarıyla silindi'),
@@ -79,11 +77,11 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
     );
   }
 
-  // --- 2. EKLEME PENCERESİ ---
-  void _showAddIllnessDialog(BuildContext context) {
+  void _showAddIllnessDialog(BuildContext context, IllnessViewModel viewModel) {
     final nameController = TextEditingController();
     final notesController = TextEditingController();
     IllnessStatus selectedStatus = IllnessStatus.active;
+    Person? selectedPerson = viewModel.selectedPerson;
 
     showDialog(
       context: context,
@@ -98,7 +96,37 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Kişi seçimi (birden fazla kişi varsa)
+                    if (viewModel.persons.length > 1) ...[
+                      const Text(
+                        'Kişi',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: viewModel.persons.map((p) {
+                          final isSelected = selectedPerson?.id == p.id;
+                          final isSelf = p.id == viewModel.persons.first.id;
+                          return ChoiceChip(
+                            label: Text(isSelf ? 'Ben' : p.name),
+                            selected: isSelected,
+                            selectedColor: Colors.teal,
+                            labelStyle: TextStyle(
+                              color:
+                                  isSelected ? Colors.white : Colors.black87,
+                              fontSize: 13,
+                            ),
+                            onSelected: (_) =>
+                                setDialogState(() => selectedPerson = p),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     TextField(
                       controller: nameController,
                       decoration: const InputDecoration(
@@ -141,9 +169,11 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
                   child: const Text('İptal'),
                 ),
                 ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                  style:
+                      ElevatedButton.styleFrom(backgroundColor: Colors.teal),
                   onPressed: () async {
-                    if (nameController.text.isNotEmpty) {
+                    if (nameController.text.isNotEmpty &&
+                        selectedPerson != null) {
                       final success = await context
                           .read<IllnessViewModel>()
                           .addIllness(
@@ -152,8 +182,11 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
                             notesController.text.isEmpty
                                 ? null
                                 : notesController.text,
+                            selectedPerson!.id,
                           );
-                      if (success && context.mounted) Navigator.pop(dialogContext);
+                      if (success && context.mounted) {
+                        Navigator.pop(dialogContext);
+                      }
                     }
                   },
                   child: const Text(
@@ -176,101 +209,171 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
         title: const Text('Hastalıklarım'),
         backgroundColor: Colors.teal,
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddIllnessDialog(context),
-        backgroundColor: Colors.teal,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
       body: Consumer<IllnessViewModel>(
         builder: (context, viewModel, child) {
-          if (viewModel.isLoading) {
+          if (viewModel.isPersonsLoading) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (viewModel.errorMessage != null) {
-            return Center(child: Text(viewModel.errorMessage!));
-          }
-          if (viewModel.illnesses.isEmpty) {
-            return const Center(
-              child: Text('Henüz bir hastalık kaydı bulunamadı.'),
-            );
-          }
 
-          return ListView.builder(
-            itemCount: viewModel.illnesses.length,
-            itemBuilder: (context, index) {
-              final illness = viewModel.illnesses[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Colors.tealAccent,
-                    child: Icon(Icons.medical_services, color: Colors.teal),
-                  ),
-                  title: Text(
-                    illness.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Text('Durum: ', style: TextStyle(fontWeight: FontWeight.w500)),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: _statusColor(illness.status).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8),
+          return Column(
+            children: [
+              // Kişi filtreleri
+              if (viewModel.persons.length > 1)
+                _PersonFilterBar(
+                  persons: viewModel.persons,
+                  selectedPerson: viewModel.selectedPerson,
+                  onSelect: (p) => viewModel.selectPerson(p),
+                ),
+
+              // Hastalık listesi
+              Expanded(
+                child: Builder(
+                  builder: (_) {
+                    if (viewModel.isLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (viewModel.errorMessage != null) {
+                      return Center(child: Text(viewModel.errorMessage!));
+                    }
+                    if (viewModel.illnesses.isEmpty) {
+                      return const Center(
+                        child: Text('Henüz bir hastalık kaydı bulunamadı.'),
+                      );
+                    }
+
+                    return ListView.builder(
+                      itemCount: viewModel.illnesses.length,
+                      itemBuilder: (context, index) {
+                        final illness = viewModel.illnesses[index];
+                        return Card(
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          child: ListTile(
+                            leading: const CircleAvatar(
+                              backgroundColor: Colors.tealAccent,
+                              child: Icon(Icons.medical_services,
+                                  color: Colors.teal),
                             ),
-                            child: Text(
-                              _statusLabel(illness.status),
-                              style: TextStyle(
-                                color: _statusColor(illness.status),
-                                fontWeight: FontWeight.w600,
-                                fontSize: 12,
-                              ),
+                            title: Text(
+                              illness.name,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Text('Durum: ',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w500)),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: _statusColor(illness.status)
+                                            .withValues(alpha: 0.15),
+                                        borderRadius:
+                                            BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        _statusLabel(illness.status),
+                                        style: TextStyle(
+                                          color:
+                                              _statusColor(illness.status),
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (illness.doctorNotes != null)
+                                  Text(
+                                    'Not: ${illness.doctorNotes}',
+                                    style: const TextStyle(
+                                        color: Colors.grey, fontSize: 12),
+                                  ),
+                              ],
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  "${illness.diagnosisDate.day}/${illness.diagnosisDate.month}/${illness.diagnosisDate.year}",
+                                  style: const TextStyle(
+                                      color: Colors.grey, fontSize: 12),
+                                ),
+                                const SizedBox(width: 4),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline,
+                                      color: Colors.redAccent, size: 20),
+                                  onPressed: () => _showDeleteConfirmation(
+                                      context, illness.id, illness.name),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                      if (illness.doctorNotes != null)
-                        Text('Not: ${illness.doctorNotes}',
-                            style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                    ],
-                  ),
-
-                  // --- BURAYI DEĞİŞTİRDİK: HEM TARİH HEM SİLME BUTONU ---
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize
-                        .min, // ÖNEMLİ: Row'un tüm satırı kaplamasını engeller
-                    children: [
-                      Text(
-                        "${illness.diagnosisDate.day}/${illness.diagnosisDate.month}/${illness.diagnosisDate.year}",
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.delete_outline,
-                          color: Colors.redAccent,
-                          size: 20,
-                        ),
-                        onPressed: () => _showDeleteConfirmation(
-                          context,
-                          illness.id,
-                          illness.name,
-                        ),
-                      ),
-                    ],
-                  ),
+                        );
+                      },
+                    );
+                  },
                 ),
-              );
-            },
+              ),
+            ],
           );
         },
+      ),
+      floatingActionButton: Consumer<IllnessViewModel>(
+        builder: (context, viewModel, _) => FloatingActionButton(
+          onPressed: () => _showAddIllnessDialog(context, viewModel),
+          backgroundColor: Colors.teal,
+          child: const Icon(Icons.add, color: Colors.white),
+        ),
+      ),
+    );
+  }
+}
+
+class _PersonFilterBar extends StatelessWidget {
+  final List<Person> persons;
+  final Person? selectedPerson;
+  final void Function(Person) onSelect;
+
+  const _PersonFilterBar({
+    required this.persons,
+    required this.selectedPerson,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: persons.map((p) {
+            final isSelected = selectedPerson?.id == p.id;
+            final isSelf = p.id == persons.first.id;
+            final label = isSelf ? 'Ben' : p.name;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(label),
+                selected: isSelected,
+                selectedColor: Colors.teal,
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : Colors.black87,
+                  fontWeight:
+                      isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+                onSelected: (_) => onSelect(p),
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }

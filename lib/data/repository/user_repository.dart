@@ -161,13 +161,38 @@ class UserRepository extends BaseRepository {
             response.data!['Data'] ??
             response.data;
         if (raw is List) {
-          return Result.success(
-              raw.map((e) => Person.fromJson(e as Map<String, dynamic>)).toList());
+          final children = raw
+              .map((e) => _childJsonToPerson(e as Map<String, dynamic>))
+              .whereType<Person>()
+              .toList();
+          return Result.success(children);
         }
       }
       return Result.success([]);
     } catch (e) {
       return Result.failure(formatError(e));
+    }
+  }
+
+  Person? _childJsonToPerson(Map<String, dynamic> json) {
+    try {
+      final id = json['id'] as String?;
+      final name = json['name'] as String?;
+      final birthDateStr = json['birthDate'] as String?;
+      if (id == null || name == null || birthDateStr == null) return null;
+      return Person(
+        id: id,
+        userId: '',
+        name: name,
+        surname: '',
+        birthDate: DateTime.parse(birthDateStr),
+        gender: (json['gender'] as String?)?.toLowerCase() == 'female'
+            ? Gender.female
+            : Gender.male,
+        isChild: true,
+      );
+    } catch (_) {
+      return null;
     }
   }
 

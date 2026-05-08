@@ -76,13 +76,22 @@ class Medicine {
     final notes = (json['notes'] ?? json['Notes']) as String?;
     final personId = (json['personId'] ?? json['userId'] ?? json['UserId']) as String?;
 
-    // Backend returns Frequency as string label; frontend uses enum
+    // Backend returns Frequency as PascalCase enum name ("Weekly"), label ("Haftada Bir"), or int string ("2")
     final freqRaw = json['frequencyType'] ?? json['frequency'] ?? json['Frequency'];
     FrequencyType freqType;
     if (freqRaw != null) {
+      final rawStr = freqRaw.toString();
+      final rawLower = rawStr.toLowerCase();
       freqType = FrequencyType.values.firstWhere(
-        (e) => e.name == freqRaw || e.label == freqRaw,
-        orElse: () => FrequencyType.daily,
+        (e) => e.name == rawLower || e.label == rawStr,
+        orElse: () {
+          switch (int.tryParse(rawStr)) {
+            case 1: return FrequencyType.daily;
+            case 2: return FrequencyType.weekly;
+            case 3: return FrequencyType.monthly;
+            default: return FrequencyType.daily;
+          }
+        },
       );
     } else {
       freqType = FrequencyType.daily;

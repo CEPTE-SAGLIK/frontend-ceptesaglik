@@ -39,6 +39,9 @@ class _ReminderListScreenState extends State<ReminderListScreen>
         title: const Text('Hatırlatmalar'),
         bottom: TabBar(
           controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
           tabs: const [
             Tab(text: 'Aktif'),
             Tab(text: 'Tamamlanan'),

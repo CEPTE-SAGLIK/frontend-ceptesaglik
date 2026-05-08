@@ -40,6 +40,7 @@ class Person {
   final List<Allergy> allergies;
   final List<Medicine> medicines;
   final List<Vaccine> vaccines;
+  final bool isChild;
 
   Person({
     required this.id,
@@ -56,6 +57,7 @@ class Person {
     this.allergies = const [],
     this.medicines = const [],
     this.vaccines = const [],
+    this.isChild = false,
   });
 
   factory Person.fromJson(Map<String, dynamic> json) {

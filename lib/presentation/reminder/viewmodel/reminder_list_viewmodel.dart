@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:health_asistants/core/services/notification_service.dart';
 import 'package:health_asistants/data/model/reminder.dart';
 import 'package:health_asistants/data/repository/reminder_repository.dart';
 import 'package:health_asistants/data/repository/user_repository.dart';
@@ -18,8 +19,8 @@ class ReminderListViewModel extends ChangeNotifier {
   ReminderListViewModel({
     required ReminderRepository repository,
     required UserRepository userRepository,
-  })  : _repository = repository,
-        _userRepository = userRepository;
+  }) : _repository = repository,
+       _userRepository = userRepository;
 
   ReminderListStatus get status => _status;
   String? get errorMessage => _errorMessage;
@@ -98,6 +99,7 @@ class ReminderListViewModel extends ChangeNotifier {
   }
 
   Future<bool> deleteReminder(String id) async {
+    await NotificationService().cancelReminderNotifications(id);
     final result = await _repository.delete(id);
     if (result.isSuccess) {
       await loadReminders();
@@ -113,6 +115,15 @@ class ReminderListViewModel extends ChangeNotifier {
       orElse: () => throw Exception('Hatırlatma bulunamadı'),
     );
     final result = await _repository.toggleComplete(reminder);
-    if (result.isSuccess) await loadReminders();
+    if (result.isSuccess) {
+      if (reminder.isActive) {
+        // aktif → pasif: bildirimleri iptal et
+        await NotificationService().cancelReminderNotifications(id);
+      } else {
+        // pasif → aktif: bildirimleri yeniden planla
+        await NotificationService().scheduleReminderNotifications(result.data!);
+      }
+      await loadReminders();
+    }
   }
 }

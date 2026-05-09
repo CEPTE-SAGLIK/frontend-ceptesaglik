@@ -7,6 +7,7 @@ import 'package:health_asistants/data/repository/medicine_repository.dart';
 import 'package:health_asistants/data/repository/reminder_repository.dart';
 import 'package:health_asistants/data/repository/user_repository.dart';
 import 'package:health_asistants/data/repository/vaccine_repository.dart';
+import 'package:health_asistants/core/services/notification_service.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 
 /// Hatırlatma ekleme durumu
@@ -39,10 +40,10 @@ class AddReminderViewModel extends ChangeNotifier {
     UserRepository? userRepository,
     MedicineRepository? medicineRepository,
     VaccineRepository? vaccineRepository,
-  })  : _reminderRepository = reminderRepository ?? ReminderRepository(),
-        _userRepository = userRepository,
-        _medicineRepository = medicineRepository,
-        _vaccineRepository = vaccineRepository;
+  }) : _reminderRepository = reminderRepository ?? ReminderRepository(),
+       _userRepository = userRepository,
+       _medicineRepository = medicineRepository,
+       _vaccineRepository = vaccineRepository;
 
   AddReminderStatus _status = AddReminderStatus.initial;
   String? _errorMessage;
@@ -237,9 +238,12 @@ class AddReminderViewModel extends ChangeNotifier {
     if (_userRepository == null) return null;
     final parts = name.trim().split(' ');
     final person = Person(
-      id: '', userId: '', name: parts.first,
+      id: '',
+      userId: '',
+      name: parts.first,
       surname: parts.length > 1 ? parts.skip(1).join(' ') : '',
-      birthDate: DateTime(1990, 1, 1), gender: Gender.male,
+      birthDate: DateTime(1990, 1, 1),
+      gender: Gender.male,
     );
     final result = await _userRepository.addFamilyMember(person);
     if (result.isSuccess && result.data != null) {
@@ -292,14 +296,13 @@ class AddReminderViewModel extends ChangeNotifier {
       );
 
       // Seçili kişi self değilse başlığa isim ön-eki ekle
-      final isSelf = _selectedPerson == null ||
-          _selectedPerson!.id == _selfPerson?.id;
+      final isSelf =
+          _selectedPerson == null || _selectedPerson!.id == _selfPerson?.id;
       final String finalTitle;
       if (!isSelf) {
         final personName =
             '${_selectedPerson!.name} ${_selectedPerson!.surname}'.trim();
-        finalTitle =
-            personName.isNotEmpty ? '$personName — $_title' : _title;
+        finalTitle = personName.isNotEmpty ? '$personName — $_title' : _title;
       } else {
         finalTitle = _title;
       }
@@ -362,6 +365,10 @@ class AddReminderViewModel extends ChangeNotifier {
         _errorMessage = result.error ?? 'Hatırlatma kaydedilemedi';
         notifyListeners();
         return null;
+      }
+
+      if (result.data != null) {
+        await NotificationService().scheduleReminderNotifications(result.data!);
       }
 
       _status = AddReminderStatus.saved;

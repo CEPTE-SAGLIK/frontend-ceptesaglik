@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:health_asistants/core/services/notification_service.dart';
 import 'package:health_asistants/data/repository/auth_repository.dart';
+import 'package:health_asistants/data/repository/reminder_repository.dart';
+import 'package:health_asistants/data/repository/user_repository.dart';
 
 enum LoginStatus { initial, loading, success, error }
 
 class LoginViewModel extends ChangeNotifier {
   final AuthRepository _authRepository;
+  final ReminderRepository? _reminderRepository;
+  final UserRepository? _userRepository;
 
-  LoginViewModel({required AuthRepository authRepository})
-      : _authRepository = authRepository;
+  LoginViewModel({
+    required AuthRepository authRepository,
+    ReminderRepository? reminderRepository,
+    UserRepository? userRepository,
+  }) : _authRepository = authRepository,
+       _reminderRepository = reminderRepository,
+       _userRepository = userRepository;
 
   // Controllers - View'dan erişilebilir
   final emailController = TextEditingController();
@@ -67,6 +77,7 @@ class LoginViewModel extends ChangeNotifier {
       if (result.isSuccess) {
         _status = LoginStatus.success;
         notifyListeners();
+        _rescheduleNotifications();
         return true;
       } else {
         _status = LoginStatus.error;
@@ -80,6 +91,16 @@ class LoginViewModel extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  void _rescheduleNotifications() async {
+    if (_userRepository == null || _reminderRepository == null) return;
+    final userResult = await _userRepository.getCurrentUser();
+    if (!userResult.isSuccess || userResult.data == null) return;
+    await NotificationService().rescheduleAllNotifications(
+      userResult.data!.id,
+      _reminderRepository,
+    );
   }
 
   Future<bool> forgotPassword(String email) async {

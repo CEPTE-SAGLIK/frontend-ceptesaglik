@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:health_asistants/data/model/medicine.dart';
+import 'package:health_asistants/data/model/person.dart';
+import 'package:health_asistants/data/repository/user_repository.dart';
 import 'package:health_asistants/presentation/medicine/viewmodel/medicine_list_viewmodel.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/presentation/components/dialogs/confirm_dialog.dart';
@@ -177,8 +179,26 @@ class _MedicineListScreenState extends State<MedicineListScreen> {
     );
   }
 
-  void _showAddMedicineSheet(BuildContext context) {
+  Future<void> _showAddMedicineSheet(BuildContext context) async {
     final viewModel = context.read<MedicineListViewModel>();
+    final userRepository = context.read<UserRepository>();
+
+    final selfResult = await userRepository.getCurrentPerson();
+    final familyResult = await userRepository.getFamilyMembers();
+    final childrenResult = await userRepository.getChildren();
+
+    if (!context.mounted) return;
+
+    final Person? selfPerson = selfResult.data;
+    final List<Person> persons = [
+      if (selfPerson != null) selfPerson,
+      if (familyResult.isSuccess && familyResult.data != null)
+        ...familyResult.data!,
+      if (childrenResult.isSuccess && childrenResult.data != null)
+        ...childrenResult.data!,
+    ];
+    Person? selectedPerson = selfPerson;
+
     final nameController = TextEditingController();
     final notesController = TextEditingController();
     FrequencyType selectedFrequency = FrequencyType.daily;
@@ -218,6 +238,43 @@ class _MedicineListScreenState extends State<MedicineListScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
+
+                // Kişi Seçici
+                if (persons.length > 1) ...[
+                  const Text('Kişi', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 36,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: persons.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (ctx, index) {
+                        final person = persons[index];
+                        final isSelected = selectedPerson?.id == person.id;
+                        final isSelf = person.id == selfPerson?.id;
+                        return ChoiceChip(
+                          label: Text(
+                            isSelf ? 'Ben' : person.name,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          selected: isSelected,
+                          onSelected: (_) =>
+                              setModalState(() => selectedPerson = person),
+                          selectedColor: AppColors.primaryBlue,
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : Colors.black87,
+                            fontSize: 13,
+                          ),
+                          side: isSelected
+                              ? BorderSide.none
+                              : const BorderSide(color: Colors.grey),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
                 const Text('İlaç Adı *', style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
@@ -327,9 +384,15 @@ class _MedicineListScreenState extends State<MedicineListScreen> {
                                     selectedTime!.hour, selectedTime!.minute)
                                 : null;
 
+                            final isSelf = selectedPerson == null ||
+                                selectedPerson!.id == selfPerson?.id;
+                            final medicineName = isSelf
+                                ? nameController.text.trim()
+                                : '${selectedPerson!.name} — ${nameController.text.trim()}';
+
                             final medicine = Medicine(
                               id: const Uuid().v4(),
-                              name: nameController.text.trim(),
+                              name: medicineName,
                               frequencyType: selectedFrequency,
                               timesPerDay: 1,
                               reminderTimes: reminderTime != null ? [reminderTime] : [],
@@ -344,7 +407,7 @@ class _MedicineListScreenState extends State<MedicineListScreen> {
                             Navigator.pop(ctx);
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                               content: Text(success
-                                  ? '${medicine.name} eklendi'
+                                  ? '$medicineName eklendi'
                                   : viewModel.errorMessage ?? 'Eklenemedi'),
                               backgroundColor: success ? AppColors.primaryBlue : Colors.red,
                             ));

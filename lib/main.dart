@@ -178,12 +178,12 @@ class MyApp extends StatelessWidget {
           update: (_, __, ___, vm) => vm!,
         ),
         ChangeNotifierProxyProvider4<ReminderRepository, UserRepository,
-            MedicineRepository, VaccineRepository, CalendarViewModel>(
+            VaccineRepository, MedicineRepository, CalendarViewModel>(
           create: (ctx) => CalendarViewModel(
             reminderRepository: ctx.read<ReminderRepository>(),
-            medicineRepository: ctx.read<MedicineRepository>(),
             userRepository: ctx.read<UserRepository>(),
             vaccineRepository: ctx.read<VaccineRepository>(),
+            medicineRepository: ctx.read<MedicineRepository>(),
           ),
           update: (_, __, ___, ____, _____, vm) => vm!,
         ),

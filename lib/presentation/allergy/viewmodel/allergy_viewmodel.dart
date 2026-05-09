@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:health_asistants/data/model/allergy.dart';
+import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/core/network/api_client.dart';
 import 'package:health_asistants/data/repository/user_repository.dart';
 
@@ -9,8 +10,13 @@ class AllergyViewModel extends ChangeNotifier {
 
   List<Allergy> _allergies = [];
   bool _isLoading = false;
+  bool _isPersonsLoading = false;
   String? _errorMessage;
   String? _personId;
+
+  List<Person> _persons = [];
+  Person? _selfPerson;
+  Person? _selectedPerson;
 
   AllergyViewModel({
     required ApiClient apiClient,
@@ -20,7 +26,11 @@ class AllergyViewModel extends ChangeNotifier {
 
   List<Allergy> get allergies => _allergies;
   bool get isLoading => _isLoading;
+  bool get isPersonsLoading => _isPersonsLoading;
   String? get errorMessage => _errorMessage;
+  List<Person> get persons => _persons;
+  Person? get selfPerson => _selfPerson;
+  Person? get selectedPerson => _selectedPerson;
 
   Future<void> _ensurePersonId() async {
     if (_personId != null) return;
@@ -30,13 +40,55 @@ class AllergyViewModel extends ChangeNotifier {
     }
   }
 
+  Future<void> loadPersons() async {
+    _isPersonsLoading = true;
+    _persons = [];
+    _selfPerson = null;
+    notifyListeners();
+
+    try {
+      final selfResult = await _userRepository.getCurrentPerson();
+      final familyResult = await _userRepository.getFamilyMembers();
+      final childrenResult = await _userRepository.getChildren();
+
+      if (selfResult.isSuccess && selfResult.data != null) {
+        _selfPerson = selfResult.data!;
+        _persons.add(selfResult.data!);
+        _personId ??= selfResult.data!.id;
+      }
+      if (familyResult.isSuccess && familyResult.data != null) {
+        _persons.addAll(familyResult.data!);
+      }
+      if (childrenResult.isSuccess && childrenResult.data != null) {
+        _persons.addAll(childrenResult.data!);
+      }
+      _selectedPerson ??= _selfPerson;
+      notifyListeners();
+    } catch (_) {
+      notifyListeners();
+    }
+
+    _isPersonsLoading = false;
+    await fetchAllergies();
+  }
+
+  Future<void> selectPerson(Person person) async {
+    _selectedPerson = person;
+    notifyListeners();
+    await fetchAllergies();
+  }
+
   Future<void> fetchAllergies() async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
-    await _ensurePersonId();
-    if (_personId == null) {
+    String? pid = _selectedPerson?.id;
+    if (pid == null) {
+      await _ensurePersonId();
+      pid = _personId;
+    }
+    if (pid == null) {
       _isLoading = false;
       _errorMessage = 'Profil bilgisi alınamadı';
       notifyListeners();
@@ -44,7 +96,7 @@ class AllergyViewModel extends ChangeNotifier {
     }
 
     final response = await _apiClient.get<List<Allergy>>(
-      ApiEndpoints.allergiesByPerson(_personId!),
+      ApiEndpoints.allergiesByPerson(pid),
       fromJson: (data) =>
           (data as List).map((e) => Allergy.fromJson(e)).toList(),
     );
@@ -59,12 +111,19 @@ class AllergyViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> addAllergy(String name, {AllergyLevel? level, String? description}) async {
-    await _ensurePersonId();
-    if (_personId == null) return false;
+  Future<bool> addAllergy(String name,
+      {AllergyLevel? level,
+      String? description,
+      String? targetPersonId}) async {
+    String? pid = targetPersonId;
+    if (pid == null) {
+      await _ensurePersonId();
+      pid = _personId;
+    }
+    if (pid == null) return false;
 
     final body = {
-      'personId': _personId,
+      'personId': pid,
       'name': name,
       'createdDate': DateTime.now().toIso8601String(),
       if (level != null) 'level': level.name,

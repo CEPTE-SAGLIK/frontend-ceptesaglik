@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/presentation/home/viewmodel/gemini_viewmodel.dart';
-import 'package:health_asistants/presentation/home/viewmodel/home_viewmodel.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class GeminiAssistantSheet extends StatefulWidget {
@@ -110,49 +109,69 @@ class _GeminiAssistantSheetState extends State<GeminiAssistantSheet> {
   }
 
   Widget _buildContent(BuildContext context, GeminiViewModel viewModel) {
-    switch (viewModel.status) {
-      case GeminiStatus.analyzing:
-      case GeminiStatus.saving:
-        return const Padding(
-          padding: EdgeInsets.symmetric(vertical: 32.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text(
-                "Yapay zeka analiz ediyor... 🪄",
-                style: TextStyle(fontSize: 16),
-              ),
-            ],
-          ),
-        );
-
-      case GeminiStatus.success:
-        return _buildResults(context, viewModel);
-
-      case GeminiStatus.error:
-        return Column(
+    if (viewModel.isLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 48),
-            const SizedBox(height: 16),
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
             Text(
-              viewModel.errorMessage ?? "Bilinmeyen bir hata oluştu.",
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.red),
+              "Asistan yanıt hazırlıyor... 🪄",
+              style: TextStyle(fontSize: 16),
             ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => viewModel.reset(),
-              child: const Text("Tekrar Dene"),
-            )
           ],
-        );
-
-      case GeminiStatus.saved:
-      case GeminiStatus.initial:
-        return _buildInput(viewModel);
+        ),
+      );
     }
+
+    if (viewModel.message != null) {
+      return _buildAssistantMessage(context, viewModel);
+    }
+
+    return _buildInput(viewModel);
+  }
+
+  Widget _buildAssistantMessage(
+    BuildContext context,
+    GeminiViewModel viewModel,
+  ) {
+    final msg = viewModel.message!;
+    final isErr = viewModel.isError;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Icon(
+          isErr ? Icons.error_outline : Icons.auto_awesome,
+          color: isErr ? Colors.red : AppColors.primaryBlue,
+          size: 40,
+        ),
+        const SizedBox(height: 12),
+        SelectableText(
+          msg,
+          style: TextStyle(
+            fontSize: 15,
+            height: 1.4,
+            color: isErr ? Colors.red.shade800 : null,
+          ),
+        ),
+        const SizedBox(height: 20),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primaryBlue,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(double.infinity, 48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          onPressed: () => viewModel.reset(),
+          child: Text(isErr ? 'Tekrar dene' : 'Yeni soru'),
+        ),
+      ],
+    );
   }
 
   Widget _buildInput(GeminiViewModel viewModel) {
@@ -190,90 +209,15 @@ class _GeminiAssistantSheetState extends State<GeminiAssistantSheet> {
               borderRadius: BorderRadius.circular(12),
             ),
           ),
-          onPressed: () {
-            if (_textController.text.trim().isNotEmpty) {
-              viewModel.analyzeText(_textController.text);
-            }
-          },
-          child: const Text("Analiz Et"),
+          onPressed: viewModel.isLoading
+              ? null
+              : () {
+                  if (_textController.text.trim().isNotEmpty) {
+                    viewModel.analyzeText(_textController.text);
+                  }
+                },
+          child: const Text("Gönder"),
         ),
-      ],
-    );
-  }
-
-  Widget _buildResults(BuildContext context, GeminiViewModel viewModel) {
-    final data = viewModel.analysisResponse;
-    if (data == null) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Asistanımız şunları tespit etti:",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-
-        // İlaçlar
-        const Text("💊 İlaçlar:", style: TextStyle(fontWeight: FontWeight.bold)),
-        if (data.medicines.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(left: 8.0, top: 4.0),
-            child: Text("Bulunamadı.", style: TextStyle(color: Colors.grey)),
-          )
-        else
-          ...data.medicines.map((m) => Padding(
-                padding: const EdgeInsets.only(left: 8.0, top: 4.0),
-                child: Text("• ${m.name} (${m.timesPerDay} kez, ${m.usageInstructions ?? ''})"),
-              )),
-        
-        const SizedBox(height: 16),
-
-        // Hatırlatıcılar
-        const Text("📅 Hatırlatıcılar:", style: TextStyle(fontWeight: FontWeight.bold)),
-        if (data.reminders.isEmpty)
-           const Padding(
-            padding: EdgeInsets.only(left: 8.0, top: 4.0),
-            child: Text("Bulunamadı.", style: TextStyle(color: Colors.grey)),
-          )
-        else
-          ...data.reminders.map((r) => Padding(
-                padding: const EdgeInsets.only(left: 8.0, top: 4.0),
-                child: Text("• ${r.title} (${r.dateTime.toLocal()})"),
-              )),
-
-        const SizedBox(height: 24),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primaryBlue,
-            foregroundColor: Colors.white,
-            minimumSize: const Size(double.infinity, 50),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          onPressed: () async {
-             // Kişi Id'si alımı - Şimdilik HomeViewModel üzerinden veya varsayılan kullanılabilir
-             final personId = context.read<HomeViewModel>().currentPerson?.id ?? 'default';
-             final success = await viewModel.saveParsedResults(personId);
-             
-             if (success && context.mounted) {
-               viewModel.reset();
-               context.read<HomeViewModel>().loadHomeData();
-               Navigator.pop(context); // Kapat
-               ScaffoldMessenger.of(context).showSnackBar(
-                 const SnackBar(content: Text('Kayıtlar başarıyla eklendi! ✨'))
-               );
-             }
-          },
-          child: const Text("Kaydet ve Paneli Kapat"),
-        ),
-        const SizedBox(height: 8),
-        TextButton(
-          onPressed: () => viewModel.reset(),
-          style: TextButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-          child: const Text("Vazgeç"),
-        )
       ],
     );
   }

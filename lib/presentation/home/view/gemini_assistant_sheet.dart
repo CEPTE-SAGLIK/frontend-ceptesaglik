@@ -5,7 +5,14 @@ import 'package:health_asistants/presentation/home/viewmodel/gemini_viewmodel.da
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class GeminiAssistantSheet extends StatefulWidget {
-  const GeminiAssistantSheet({super.key});
+  final bool showCloseButton;
+  final bool isBottomSheet;
+
+  const GeminiAssistantSheet({
+    super.key,
+    this.showCloseButton = true,
+    this.isBottomSheet = true,
+  });
 
   @override
   State<GeminiAssistantSheet> createState() => _GeminiAssistantSheetState();
@@ -13,6 +20,7 @@ class GeminiAssistantSheet extends StatefulWidget {
 
 class _GeminiAssistantSheetState extends State<GeminiAssistantSheet> {
   final TextEditingController _textController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _isListening = false;
 
@@ -56,121 +64,138 @@ class _GeminiAssistantSheetState extends State<GeminiAssistantSheet> {
   @override
   void dispose() {
     _textController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _sendMessage(GeminiViewModel viewModel) async {
+    final text = _textController.text.trim();
+    if (text.isEmpty || viewModel.isLoading) return;
+
+    _textController.clear();
+    await viewModel.sendMessage(text);
+    _scrollToBottom();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    // Dinamik olarak ViewModel'ı izle
     return Consumer<GeminiViewModel>(
       builder: (context, viewModel, child) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 16,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    "🪄 Yapay Zeka Asistanı",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+        final chatContent = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "🪄 Yapay Zeka Asistanı",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                if (widget.showCloseButton)
                   IconButton(
                     icon: const Icon(Icons.close),
-                    onPressed: () {
-                      viewModel.reset();
-                      Navigator.pop(context);
-                    },
-                  )
-                ],
-              ),
-              const Divider(),
-              const SizedBox(height: 8),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+              ],
+            ),
+            const Divider(),
+            Expanded(
+              child: _buildMessages(viewModel),
+            ),
+            const SizedBox(height: 8),
+            _buildInput(viewModel),
+          ],
+        );
 
-              // İçerik (Duruma göre)
-              _buildContent(context, viewModel),
+        if (!widget.isBottomSheet) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: chatContent,
+            ),
+          );
+        }
 
-            ],
+        return SizedBox(
+          height: MediaQuery.of(context).size.height * 0.8,
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 16,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            ),
+            child: chatContent,
           ),
         );
       },
     );
   }
 
-  Widget _buildContent(BuildContext context, GeminiViewModel viewModel) {
-    if (viewModel.isLoading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 32.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text(
-              "Asistan yanıt hazırlıyor... 🪄",
-              style: TextStyle(fontSize: 16),
+  Widget _buildMessages(GeminiViewModel viewModel) {
+    final messages = viewModel.messages;
+    final hasMessages = messages.isNotEmpty;
+    final itemCount = hasMessages
+        ? messages.length + (viewModel.isLoading ? 1 : 0)
+        : 1;
+
+    return ListView.builder(
+      controller: _scrollController,
+      itemCount: itemCount,
+      itemBuilder: (context, index) {
+        if (!hasMessages) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.only(top: 40),
+              child: Text(
+                "Mesajını yaz, birlikte planlayalım.",
+                style: TextStyle(color: Colors.grey),
+              ),
             ),
-          ],
-        ),
-      );
-    }
+          );
+        }
 
-    if (viewModel.message != null) {
-      return _buildAssistantMessage(context, viewModel);
-    }
+        if (viewModel.isLoading && index == messages.length) {
+          return const _TypingBubble();
+        }
 
-    return _buildInput(viewModel);
-  }
-
-  Widget _buildAssistantMessage(
-    BuildContext context,
-    GeminiViewModel viewModel,
-  ) {
-    final msg = viewModel.message!;
-    final isErr = viewModel.isError;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Icon(
-          isErr ? Icons.error_outline : Icons.auto_awesome,
-          color: isErr ? Colors.red : AppColors.primaryBlue,
-          size: 40,
-        ),
-        const SizedBox(height: 12),
-        SelectableText(
-          msg,
-          style: TextStyle(
-            fontSize: 15,
-            height: 1.4,
-            color: isErr ? Colors.red.shade800 : null,
-          ),
-        ),
-        const SizedBox(height: 20),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primaryBlue,
-            foregroundColor: Colors.white,
-            minimumSize: const Size(double.infinity, 48),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+        final message = messages[index];
+        return Align(
+          alignment:
+              message.isUser ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 6),
+            padding: const EdgeInsets.all(12),
+            constraints: const BoxConstraints(maxWidth: 320),
+            decoration: BoxDecoration(
+              color: message.isUser
+                  ? AppColors.primaryBlue
+                  : (message.isError ? Colors.red.shade50 : Colors.grey.shade100),
+              borderRadius: BorderRadius.circular(14),
+              border: message.isError
+                  ? Border.all(color: Colors.red.shade300)
+                  : null,
+            ),
+            child: Text(
+              message.text,
+              style: TextStyle(
+                color: message.isUser ? Colors.white : Colors.black87,
+              ),
             ),
           ),
-          onPressed: () => viewModel.reset(),
-          child: Text(isErr ? 'Tekrar dene' : 'Yeni soru'),
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -184,9 +209,12 @@ class _GeminiAssistantSheetState extends State<GeminiAssistantSheet> {
         const SizedBox(height: 16),
         TextField(
           controller: _textController,
-          maxLines: 3,
+          minLines: 1,
+          maxLines: 4,
+          textInputAction: TextInputAction.send,
+          onSubmitted: (_) => _sendMessage(viewModel),
           decoration: InputDecoration(
-            hintText: "Asistana söyle...",
+            hintText: "Mesajını yaz...",
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -211,14 +239,41 @@ class _GeminiAssistantSheetState extends State<GeminiAssistantSheet> {
           ),
           onPressed: viewModel.isLoading
               ? null
-              : () {
-                  if (_textController.text.trim().isNotEmpty) {
-                    viewModel.analyzeText(_textController.text);
-                  }
-                },
+              : () => _sendMessage(viewModel),
           child: const Text("Gönder"),
         ),
       ],
+    );
+  }
+}
+
+class _TypingBubble extends StatelessWidget {
+  const _TypingBubble();
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 8),
+            Text("Yazıyor..."),
+          ],
+        ),
+      ),
     );
   }
 }

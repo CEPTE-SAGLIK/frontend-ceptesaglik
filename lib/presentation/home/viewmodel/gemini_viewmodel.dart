@@ -1,6 +1,20 @@
 import 'package:flutter/foundation.dart';
 import 'package:health_asistants/data/repository/gemini_repository.dart';
 
+class GeminiChatMessage {
+  final String text;
+  final bool isUser;
+  final bool isError;
+  final DateTime createdAt;
+
+  const GeminiChatMessage({
+    required this.text,
+    required this.isUser,
+    this.isError = false,
+    required this.createdAt,
+  });
+}
+
 class GeminiViewModel extends ChangeNotifier {
   final GeminiRepository _geminiRepository;
 
@@ -8,33 +22,46 @@ class GeminiViewModel extends ChangeNotifier {
       : _geminiRepository = geminiRepository;
 
   bool _isLoading = false;
-  String? _message;
-  bool _isError = false;
+  final List<GeminiChatMessage> _messages = [];
 
   bool get isLoading => _isLoading;
+  List<GeminiChatMessage> get messages => List.unmodifiable(_messages);
 
-  /// Asistan yanıtı veya hata metni (ekranda gösterilir).
-  String? get message => _message;
-
-  /// [message] bir hata mesajı mı (ör. kırmızı gösterim için).
-  bool get isError => _isError;
-
-  Future<void> analyzeText(String text) async {
+  Future<void> sendMessage(String text) async {
     if (text.trim().isEmpty) return;
+    if (_isLoading) return;
+
+    final normalized = text.trim();
+    _messages.add(
+      GeminiChatMessage(
+        text: normalized,
+        isUser: true,
+        createdAt: DateTime.now(),
+      ),
+    );
 
     _isLoading = true;
-    _message = null;
-    _isError = false;
     notifyListeners();
 
     try {
-      final reply = await _geminiRepository.analyzeText(text);
-      _message = reply;
-      _isError = false;
+      final reply = await _geminiRepository.analyzeText(normalized);
+      _messages.add(
+        GeminiChatMessage(
+          text: reply,
+          isUser: false,
+          createdAt: DateTime.now(),
+        ),
+      );
     } catch (e, st) {
-      debugPrint('GeminiViewModel.analyzeText: $e\n$st');
-      _message = _toUserFacingMessage(e);
-      _isError = true;
+      debugPrint('GeminiViewModel.sendMessage: $e\n$st');
+      _messages.add(
+        GeminiChatMessage(
+          text: _toUserFacingMessage(e),
+          isUser: false,
+          isError: true,
+          createdAt: DateTime.now(),
+        ),
+      );
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -52,8 +79,7 @@ class GeminiViewModel extends ChangeNotifier {
 
   void reset() {
     _isLoading = false;
-    _message = null;
-    _isError = false;
+    _messages.clear();
     notifyListeners();
   }
 }

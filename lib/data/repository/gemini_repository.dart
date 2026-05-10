@@ -64,7 +64,7 @@ class GeminiRepository extends BaseRepository {
   Map<String, dynamic> _unwrapDataMap(Map<String, dynamic> json) {
     final data = json['data'] ?? json['Data'];
     if (data is Map) {
-      return Map<String, dynamic>.from(data as Map);
+      return Map<String, dynamic>.from(data);
     }
     return json;
   }

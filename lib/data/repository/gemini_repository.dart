@@ -2,7 +2,7 @@ import 'package:health_asistants/core/network/api_client.dart';
 import 'package:health_asistants/data/model/gemini_analysis.dart';
 import 'package:health_asistants/data/repository/base_repository.dart';
 
-/// Gemini sohbeti için API erişimi (`POST /api/Chat/analyze`).
+/// Gemini sohbeti için API erişimi (`POST /api/Chat` — ChatController).
 class GeminiRepository extends BaseRepository {
   GeminiRepository({super.apiClient});
 
@@ -11,7 +11,7 @@ class GeminiRepository extends BaseRepository {
   Future<String> analyzeText(String text) async {
     try {
       final response = await apiClient.post<dynamic>(
-        ApiEndpoints.chatAnalyze,
+        ApiEndpoints.chat,
         body: {'message': text},
       );
 

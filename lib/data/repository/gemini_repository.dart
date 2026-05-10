@@ -12,7 +12,7 @@ class GeminiRepository extends BaseRepository {
     try {
       final response = await apiClient.post<dynamic>(
         ApiEndpoints.chat,
-        body: {'message': text},
+        body: {'Message': text},
       );
 
       if (!response.isSuccess) {

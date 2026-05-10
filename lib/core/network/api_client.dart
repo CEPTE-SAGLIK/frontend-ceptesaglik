@@ -213,7 +213,10 @@ class ApiEndpoints {
   static String childVaccines(String childId) =>
       '/api/children/$childId/vaccines';
 
-  // AI Assistant
+  // AI / Chat (Gemini proxy — doğrudan sohbet)
+  static const String chatAnalyze = '/api/Chat/analyze';
+
+  /// Eski yapılandırılmış analiz uç noktası (ilaç/hatırlatıcı çıkarma).
   static const String aiAnalyze = '/api/ai/analyze';
 
   // Notifications

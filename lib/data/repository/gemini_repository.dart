@@ -2,7 +2,7 @@ import 'package:health_asistants/core/network/api_client.dart';
 import 'package:health_asistants/data/model/gemini_analysis.dart';
 import 'package:health_asistants/data/repository/base_repository.dart';
 
-/// Gemini / yapay zeka analizi için API erişimi (`/api/ai/analyze`).
+/// Gemini sohbeti için API erişimi (`POST /api/Chat/analyze`).
 class GeminiRepository extends BaseRepository {
   GeminiRepository({super.apiClient});
 
@@ -11,8 +11,8 @@ class GeminiRepository extends BaseRepository {
   Future<String> analyzeText(String text) async {
     try {
       final response = await apiClient.post<dynamic>(
-        ApiEndpoints.aiAnalyze,
-        body: {'text': text},
+        ApiEndpoints.chatAnalyze,
+        body: {'message': text},
       );
 
       if (!response.isSuccess) {
@@ -46,6 +46,9 @@ class GeminiRepository extends BaseRepository {
     }
     if (raw is Map<String, dynamic>) {
       final unwrapped = _unwrapDataMap(raw);
+      final fromChoices = _stringFromChoices(unwrapped);
+      if (fromChoices != null) return fromChoices;
+
       final direct = _stringFromMap(unwrapped);
       if (direct != null) return direct;
 
@@ -69,9 +72,28 @@ class GeminiRepository extends BaseRepository {
     return json;
   }
 
+  /// OpenAI / bazı Gemini proxy yanıtları: `choices[0].message.content`
+  String? _stringFromChoices(Map<String, dynamic> map) {
+    final choices = map['choices'] ?? map['Choices'];
+    if (choices is! List || choices.isEmpty) return null;
+    final first = choices.first;
+    if (first is! Map) return null;
+    final message = first['message'] ?? first['Message'];
+    if (message is Map) {
+      final content = message['content'] ?? message['Content'];
+      if (content is String && content.trim().isNotEmpty) return content.trim();
+    }
+    final text = first['text'] ?? first['Text'];
+    if (text is String && text.trim().isNotEmpty) return text.trim();
+    return null;
+  }
+
   String? _stringFromMap(Map<String, dynamic> map) {
     const keys = [
       'analysis',
+      'assistantMessage',
+      'assistant',
+      'completion',
       'text',
       'message',
       'result',

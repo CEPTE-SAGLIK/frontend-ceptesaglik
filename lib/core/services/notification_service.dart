@@ -78,10 +78,12 @@ class NotificationService {
   // her 2 dakikada bir bildirim planlar.
   Future<void> _scheduleOneTime(Reminder reminder) async {
     final now = DateTime.now();
+    debugPrint("Checking one-time reminder. Now: $now, Reminder DateTime: ${reminder.dateTime}");
     int index = 0;
     for (int minutesBefore = 24; minutesBefore >= 0; minutesBefore -= 2) {
       final notifTime = reminder.dateTime.subtract(Duration(minutes: minutesBefore));
       if (notifTime.isAfter(now)) {
+        debugPrint("Scheduling at: $notifTime for $minutesBefore earlier");
         await _scheduleOne(
           id: _notifId(reminder.id, index),
           title: _buildTitle(reminder.title, minutesBefore),

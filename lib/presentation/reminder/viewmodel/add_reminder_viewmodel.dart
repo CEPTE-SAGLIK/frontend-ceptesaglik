@@ -409,7 +409,9 @@ class AddReminderViewModel extends ChangeNotifier {
       }
 
       // Repository'ye kaydet
+      print("Saving reminder: ${reminder.toJson()}");
       final result = await _reminderRepository.create(reminder);
+      print("Save result isSuccess: ${result.isSuccess}, data: ${result.data?.toJson()}");
       if (!result.isSuccess) {
         _status = AddReminderStatus.error;
         _errorMessage = result.error ?? 'Hatırlatma kaydedilemedi';
@@ -418,7 +420,9 @@ class AddReminderViewModel extends ChangeNotifier {
       }
 
       if (result.data != null) {
+        print("Scheduling notifications for reminder...");
         await NotificationService().scheduleReminderNotifications(result.data!);
+        print("Done scheduling");
       }
 
       _status = AddReminderStatus.saved;

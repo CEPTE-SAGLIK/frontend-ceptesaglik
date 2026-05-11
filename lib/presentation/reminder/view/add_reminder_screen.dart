@@ -12,7 +12,6 @@ import 'package:health_asistants/presentation/reminder/viewmodel/add_reminder_vi
 
 class AddReminderScreen extends StatelessWidget {
   const AddReminderScreen({super.key});
-  
 
   @override
   Widget build(BuildContext context) {
@@ -279,17 +278,20 @@ class _AddReminderContentState extends State<_AddReminderContent> {
                       children: [
                         Icon(Icons.add, size: 16, color: AppColors.primaryBlue),
                         const SizedBox(width: 4),
-                        Text('Ekle',
-                            style: TextStyle(
-                                fontSize: 13, color: AppColors.primaryBlue)),
+                        Text(
+                          'Ekle',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.primaryBlue,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 );
               }
               final Person person = viewModel.persons[index];
-              final bool isSelected =
-                  viewModel.selectedPerson?.id == person.id;
+              final bool isSelected = viewModel.selectedPerson?.id == person.id;
               final bool isSelf = person.id == viewModel.selfPerson?.id;
               final String label = isSelf ? 'Ben' : person.name;
               return ChoiceChip(
@@ -313,7 +315,9 @@ class _AddReminderContentState extends State<_AddReminderContent> {
   }
 
   void _showAddPersonDialog(
-      BuildContext context, AddReminderViewModel viewModel) {
+    BuildContext context,
+    AddReminderViewModel viewModel,
+  ) {
     final controller = TextEditingController();
     showDialog(
       context: context,
@@ -351,4 +355,3 @@ class _AddReminderContentState extends State<_AddReminderContent> {
     }
   }
 }
-

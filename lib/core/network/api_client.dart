@@ -3,8 +3,7 @@ import 'package:http/http.dart' as http;
 
 class ApiClient {
   //static const String baseUrl = 'http://192.168.1.151:5105';
-  /// Android emülatör → host makine. Sonda `/` olmasın; endpoint'ler `/api/...` ile başlar.
-  static const String baseUrl = 'http://10.0.2.2:5105';
+  static const String baseUrl = 'http://192.168.1.151:5105';
   String? _authToken;
   String? _refreshToken;
 

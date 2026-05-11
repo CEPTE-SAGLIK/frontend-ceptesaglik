@@ -47,6 +47,169 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _showEditReminderSheet(BuildContext context, Reminder reminder) {
+    final viewModel = context.read<HomeViewModel>();
+    final titleController = TextEditingController(text: reminder.title);
+    final descController = TextEditingController(text: reminder.description ?? '');
+    DateTime selectedDate = reminder.dateTime;
+    RepeatType selectedRepeat = reminder.repeatType;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            left: 24, right: 24, top: 24,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Hatırlatmayı Düzenle',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: titleController,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'Başlık',
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descController,
+                  decoration: InputDecoration(
+                    labelText: 'Açıklama (opsiyonel)',
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: ctx,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2030),
+                    );
+                    if (date == null) return;
+                    if (!ctx.mounted) return;
+                    final time = await showTimePicker(
+                      context: ctx,
+                      initialTime: TimeOfDay.fromDateTime(selectedDate),
+                    );
+                    if (time != null) {
+                      setModalState(() => selectedDate = DateTime(
+                            date.year, date.month, date.day,
+                            time.hour, time.minute,
+                          ));
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
+                        const SizedBox(width: 12),
+                        Text(DateFormat('d MMMM yyyy, HH:mm', 'tr_TR').format(selectedDate)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<RepeatType>(
+                      value: selectedRepeat,
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(value: RepeatType.none, child: Text('Tekrar yok')),
+                        DropdownMenuItem(value: RepeatType.daily, child: Text('Her gün')),
+                        DropdownMenuItem(value: RepeatType.weekly, child: Text('Her hafta')),
+                        DropdownMenuItem(value: RepeatType.monthly, child: Text('Her ay')),
+                      ],
+                      onChanged: (v) => setModalState(() => selectedRepeat = v!),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryBlue,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30)),
+                    ),
+                    onPressed: () async {
+                      if (titleController.text.trim().isEmpty) return;
+                      final updated = reminder.copyWith(
+                        title: titleController.text.trim(),
+                        description: descController.text.trim().isEmpty
+                            ? null
+                            : descController.text.trim(),
+                        dateTime: selectedDate,
+                        repeatType: selectedRepeat,
+                      );
+                      final success = await viewModel.updateReminder(updated);
+                      if (success && ctx.mounted) {
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Hatırlatma güncellendi'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    },
+                    child: const Text('Güncelle',
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -293,6 +456,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   key: Key(reminder.id),
                   reminder: reminder,
                   timeText: timeFormat.format(reminder.dateTime),
+                  onEdit: () => _showEditReminderSheet(context, reminder),
                   onToggle: () => viewModel.toggleReminderComplete(reminder.id),
                   onDelete: () async {
                     final ok = await viewModel.deleteReminder(reminder.id);
@@ -509,6 +673,7 @@ class _SummaryCard extends StatelessWidget {
 class _ReminderTile extends StatelessWidget {
   final Reminder reminder;
   final String timeText;
+  final VoidCallback onEdit;
   final VoidCallback onToggle;
   final Future<bool> Function() onDelete;
 
@@ -516,6 +681,7 @@ class _ReminderTile extends StatelessWidget {
     super.key,
     required this.reminder,
     required this.timeText,
+    required this.onEdit,
     required this.onToggle,
     required this.onDelete,
   });
@@ -623,7 +789,15 @@ class _ReminderTile extends StatelessWidget {
                       : _getTypeColor(),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: onEdit,
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.edit_outlined, size: 18, color: Colors.teal),
+                ),
+              ),
+              const SizedBox(width: 8),
               Container(
                 width: 24,
                 height: 24,

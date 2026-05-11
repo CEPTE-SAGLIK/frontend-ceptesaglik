@@ -225,6 +225,26 @@ class UserRepository extends BaseRepository {
     }
   }
 
+  Future<Result<bool>> updateChild(
+      String id, String name, DateTime birthDate, Gender gender) async {
+    try {
+      final response = await apiClient.put<Map<String, dynamic>>(
+        ApiEndpoints.child(id),
+        body: {
+          'name': name,
+          'birthDate': birthDate.toIso8601String().split('.')[0],
+          'gender': gender == Gender.male ? 'male' : 'female',
+        },
+        fromJson: (json) => json,
+      );
+      return response.isSuccess
+          ? Result.success(true)
+          : Result.failure(response.errorMessage ?? 'Çocuk güncellenemedi');
+    } catch (e) {
+      return Result.failure(formatError(e));
+    }
+  }
+
   Future<Result<bool>> updatePhysicalInfo(
       String id, double height, double weight, Gender gender) async {
     try {

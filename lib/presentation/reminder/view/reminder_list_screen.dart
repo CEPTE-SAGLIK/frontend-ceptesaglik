@@ -147,6 +147,7 @@ class _ReminderListScreenState extends State<ReminderListScreen>
             onToggle: () => viewModel.toggleComplete(reminder.id),
             onDelete: () =>
                 _showDeleteConfirmation(context, viewModel, reminder),
+            onEdit: () => _showEditReminderSheet(context, viewModel, reminder),
           );
         },
       ),
@@ -174,9 +175,194 @@ class _ReminderListScreenState extends State<ReminderListScreen>
   }
 
   void _showAddReminderSheet(BuildContext context) {
-    // TODO: Hatırlatma ekleme bottom sheet
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Hatırlatma ekleme ekranı yakında')),
+    );
+  }
+
+  void _showEditReminderSheet(
+    BuildContext context,
+    ReminderListViewModel viewModel,
+    Reminder reminder,
+  ) {
+    final titleController = TextEditingController(text: reminder.title);
+    final descController =
+        TextEditingController(text: reminder.description ?? '');
+    DateTime selectedDate = reminder.dateTime;
+    RepeatType selectedRepeat = reminder.repeatType;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 24,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Hatırlatmayı Düzenle',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: titleController,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'Başlık',
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descController,
+                  decoration: InputDecoration(
+                    labelText: 'Açıklama (opsiyonel)',
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: ctx,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2030),
+                    );
+                    if (date == null) return;
+                    if (!ctx.mounted) return;
+                    final time = await showTimePicker(
+                      context: ctx,
+                      initialTime: TimeOfDay.fromDateTime(selectedDate),
+                    );
+                    if (time != null) {
+                      setModalState(() => selectedDate = DateTime(
+                            date.year,
+                            date.month,
+                            date.day,
+                            time.hour,
+                            time.minute,
+                          ));
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today,
+                            size: 18, color: Colors.grey),
+                        const SizedBox(width: 12),
+                        Text(DateFormat('d MMMM yyyy, HH:mm', 'tr_TR')
+                            .format(selectedDate)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<RepeatType>(
+                      value: selectedRepeat,
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(
+                            value: RepeatType.none,
+                            child: Text('Tekrar yok')),
+                        DropdownMenuItem(
+                            value: RepeatType.daily,
+                            child: Text('Her gün')),
+                        DropdownMenuItem(
+                            value: RepeatType.weekly,
+                            child: Text('Her hafta')),
+                        DropdownMenuItem(
+                            value: RepeatType.monthly,
+                            child: Text('Her ay')),
+                      ],
+                      onChanged: (v) =>
+                          setModalState(() => selectedRepeat = v!),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryBlue,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30)),
+                    ),
+                    onPressed: () async {
+                      if (titleController.text.trim().isEmpty) return;
+                      final updated = reminder.copyWith(
+                        title: titleController.text.trim(),
+                        description: descController.text.trim().isEmpty
+                            ? null
+                            : descController.text.trim(),
+                        dateTime: selectedDate,
+                        repeatType: selectedRepeat,
+                      );
+                      final success =
+                          await viewModel.updateReminder(updated);
+                      if (success && ctx.mounted) {
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Hatırlatma güncellendi'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    },
+                    child: const Text('Güncelle',
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -185,11 +371,13 @@ class _ReminderCard extends StatelessWidget {
   final Reminder reminder;
   final VoidCallback onToggle;
   final VoidCallback onDelete;
+  final VoidCallback onEdit;
 
   const _ReminderCard({
     required this.reminder,
     required this.onToggle,
     required this.onDelete,
+    required this.onEdit,
   });
 
   @override
@@ -209,7 +397,9 @@ class _ReminderCard extends StatelessWidget {
         ),
         confirmDismiss: (_) async => true,
         onDismissed: (_) => onDelete(),
-        child: ListTile(
+        child: InkWell(
+          onLongPress: onEdit,
+          child: ListTile(
           leading: CircleAvatar(
             backgroundColor: _getTypeColor(reminder.type).withValues(alpha: 0.2),
             child: Icon(
@@ -248,14 +438,24 @@ class _ReminderCard extends StatelessWidget {
               ),
             ],
           ),
-          trailing: Checkbox(
-            value: !reminder.isActive,
-            onChanged: (_) => onToggle(),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit_outlined, color: Colors.teal),
+                onPressed: onEdit,
+              ),
+              Checkbox(
+                value: !reminder.isActive,
+                onChanged: (_) => onToggle(),
+              ),
+            ],
           ),
           isThreeLine: reminder.description != null,
-        ),
-      ),
-    );
+          ),   // ListTile
+        ),     // InkWell
+      ),       // Dismissible
+    );         // Card
   }
 
   Color _getTypeColor(ReminderType type) {

@@ -85,7 +85,7 @@ class _MyChildrenScreenState extends State<MyChildrenScreen> {
           MaterialPageRoute(
               builder: (_) => PersonDetailScreen(person: person)),
         ),
-        onLongPress: () => _showDeleteConfirmation(context, person),
+        onLongPress: () => _showChildOptions(context, person),
         child: Container(
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
@@ -123,8 +123,211 @@ class _MyChildrenScreenState extends State<MyChildrenScreen> {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Colors.grey),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, color: Colors.teal),
+                    onPressed: () => _showEditChildModal(context, person),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                  const Icon(Icons.chevron_right, color: Colors.grey),
+                ],
+              ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showChildOptions(BuildContext context, Person person) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined, color: Colors.teal),
+              title: const Text('Düzenle'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showEditChildModal(context, person);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('Sil', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showDeleteConfirmation(context, person);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditChildModal(BuildContext context, Person person) {
+    final nameController = TextEditingController(text: person.name);
+    DateTime selectedDate = person.birthDate;
+    Gender selectedGender = person.gender;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              left: 24,
+              right: 24,
+              top: 24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2)),
+                  ),
+                ),
+                Text('Profili Düzenle', style: AppTextStyles.titleMedium),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: nameController,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'Ad',
+                    filled: true,
+                    fillColor: Colors.grey.shade100,
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Doğum tarihi seçici
+                InkWell(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: ctx,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setModalState(() => selectedDate = picked);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today,
+                            size: 18, color: Colors.grey),
+                        const SizedBox(width: 12),
+                        Text(
+                          '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
+                          style: AppTextStyles.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Cinsiyet seçici
+                Row(
+                  children: [
+                    Expanded(
+                      child: ChoiceChip(
+                        label: const Text('Erkek'),
+                        selected: selectedGender == Gender.male,
+                        selectedColor: AppColors.primaryBlue,
+                        labelStyle: TextStyle(
+                          color: selectedGender == Gender.male
+                              ? Colors.white
+                              : Colors.black87,
+                        ),
+                        onSelected: (_) =>
+                            setModalState(() => selectedGender = Gender.male),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ChoiceChip(
+                        label: const Text('Kız'),
+                        selected: selectedGender == Gender.female,
+                        selectedColor: AppColors.primaryBlue,
+                        labelStyle: TextStyle(
+                          color: selectedGender == Gender.female
+                              ? Colors.white
+                              : Colors.black87,
+                        ),
+                        onSelected: (_) =>
+                            setModalState(() => selectedGender = Gender.female),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Consumer<FamilyViewModel>(
+                  builder: (context, vm, _) => CustomButton(
+                    text: vm.status == FamilyStatus.saving
+                        ? 'Kaydediliyor...'
+                        : 'Güncelle',
+                    onPressed: () {
+                      if (vm.status == FamilyStatus.saving) return;
+                      final name = nameController.text.trim();
+                      if (name.isEmpty) return;
+                      vm
+                          .updateChild(
+                              person.id, name, selectedDate, selectedGender)
+                          .then((success) {
+                        if (success && context.mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Profil güncellendi.')),
+                          );
+                        }
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -146,9 +349,10 @@ class _MyChildrenScreenState extends State<MyChildrenScreen> {
             onPressed: () async {
               Navigator.pop(ctx);
               final vm = context.read<FamilyViewModel>();
+              final messenger = ScaffoldMessenger.of(context);
               final success = await vm.deleteChild(person.id);
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                messenger.showSnackBar(SnackBar(
                   content: Text(success
                       ? '${person.name} başarıyla silindi.'
                       : 'Silme hatası: ${vm.errorMessage ?? 'İşlem başarısız'}'),

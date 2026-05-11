@@ -1,128 +1,85 @@
 import 'package:flutter/foundation.dart';
-import 'package:uuid/uuid.dart';
-import 'package:health_asistants/data/model/gemini_analysis.dart';
-import 'package:health_asistants/data/model/medicine.dart';
-import 'package:health_asistants/data/model/reminder.dart';
 import 'package:health_asistants/data/repository/gemini_repository.dart';
-import 'package:health_asistants/data/repository/medicine_repository.dart';
-import 'package:health_asistants/data/repository/reminder_repository.dart';
 
-enum GeminiStatus { initial, analyzing, success, saving, saved, error }
+class GeminiChatMessage {
+  final String text;
+  final bool isUser;
+  final bool isError;
+  final DateTime createdAt;
+
+  const GeminiChatMessage({
+    required this.text,
+    required this.isUser,
+    this.isError = false,
+    required this.createdAt,
+  });
+}
 
 class GeminiViewModel extends ChangeNotifier {
   final GeminiRepository _geminiRepository;
-  final MedicineRepository _medicineRepository;
-  final ReminderRepository _reminderRepository;
 
-  GeminiViewModel({
-    required GeminiRepository geminiRepository,
-    required MedicineRepository medicineRepository,
-    required ReminderRepository reminderRepository,
-  })  : _geminiRepository = geminiRepository,
-        _medicineRepository = medicineRepository,
-        _reminderRepository = reminderRepository;
+  GeminiViewModel({required GeminiRepository geminiRepository})
+      : _geminiRepository = geminiRepository;
 
-  GeminiStatus _status = GeminiStatus.initial;
-  String? _errorMessage;
-  GeminiAnalysisResponse? _analysisResponse;
+  bool _isLoading = false;
+  final List<GeminiChatMessage> _messages = [];
 
-  // Getters
-  GeminiStatus get status => _status;
-  String? get errorMessage => _errorMessage;
-  GeminiAnalysisResponse? get analysisResponse => _analysisResponse;
+  bool get isLoading => _isLoading;
+  List<GeminiChatMessage> get messages => List.unmodifiable(_messages);
 
-  Future<void> analyzeText(String text) async {
+  Future<void> sendMessage(String text) async {
     if (text.trim().isEmpty) return;
-    
-    _status = GeminiStatus.analyzing;
-    _errorMessage = null;
+    if (_isLoading) return;
+
+    final normalized = text.trim();
+    _messages.add(
+      GeminiChatMessage(
+        text: normalized,
+        isUser: true,
+        createdAt: DateTime.now(),
+      ),
+    );
+
+    _isLoading = true;
     notifyListeners();
 
     try {
-      final result = await _geminiRepository.analyzeText(text);
-      if (result.isSuccess) {
-        _analysisResponse = result.data;
-        _status = GeminiStatus.success;
-      } else {
-        _errorMessage = result.error ?? 'Analiz başarısız oldu';
-        _status = GeminiStatus.error;
-      }
-    } catch (e) {
-      _errorMessage = e.toString();
-      _status = GeminiStatus.error;
+      final reply = await _geminiRepository.analyzeText(normalized);
+      _messages.add(
+        GeminiChatMessage(
+          text: reply,
+          isUser: false,
+          createdAt: DateTime.now(),
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('GeminiViewModel.sendMessage: $e\n$st');
+      _messages.add(
+        GeminiChatMessage(
+          text: _toUserFacingMessage(e),
+          isUser: false,
+          isError: true,
+          createdAt: DateTime.now(),
+        ),
+      );
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-    notifyListeners();
   }
 
-  Future<bool> saveParsedResults(String personId) async {
-    if (_analysisResponse == null) return false;
-
-    _status = GeminiStatus.saving;
-    notifyListeners();
-
-    bool hasError = false;
-
-    try {
-      // İlaçları Kaydet
-      for (final extractedMedicine in _analysisResponse!.medicines) {
-        final frequency = FrequencyType.fromLabel(extractedMedicine.frequencyType);
-
-        final medicine = Medicine(
-          id: const Uuid().v4(),
-          name: extractedMedicine.name,
-          frequencyType: frequency,
-          timesPerDay: extractedMedicine.timesPerDay,
-          usageInstructions: extractedMedicine.usageInstructions,
-          startDate: DateTime.now(),
-          personId: personId,
-        );
-
-        final result = await _medicineRepository.create(medicine);
-        if (!result.isSuccess) hasError = true;
-      }
-
-      // Hatırlatıcıları Kaydet
-      for (final extractedReminder in _analysisResponse!.reminders) {
-        final type = ReminderType.values.firstWhere(
-          (e) => e.name == extractedReminder.type,
-          orElse: () => ReminderType.custom,
-        );
-
-        final reminder = Reminder(
-          id: const Uuid().v4(),
-          personId: personId,
-          title: extractedReminder.title,
-          type: type,
-          dateTime: extractedReminder.dateTime,
-          createdAt: DateTime.now(),
-        );
-
-        final result = await _reminderRepository.create(reminder);
-        if (!result.isSuccess) hasError = true;
-      }
-
-      if (hasError) {
-         _errorMessage = 'Bazı kayıtlar eklenirken hata oluştu.';
-         _status = GeminiStatus.error;
-         notifyListeners();
-         return false;
-      }
-
-      _status = GeminiStatus.saved;
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _errorMessage = e.toString();
-      _status = GeminiStatus.error;
-      notifyListeners();
-      return false;
+  static String _toUserFacingMessage(Object e) {
+    final s = e.toString();
+    const prefix = 'Exception: ';
+    if (s.startsWith(prefix)) {
+      return s.substring(prefix.length);
     }
+    return s;
   }
 
   void reset() {
-    _status = GeminiStatus.initial;
-    _analysisResponse = null;
-    _errorMessage = null;
+    _isLoading = false;
+    _messages.clear();
     notifyListeners();
   }
 }

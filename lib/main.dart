@@ -244,18 +244,11 @@ class MyApp extends StatelessWidget {
           ),
           update: (_, __, ___, ____, vm) => vm!,
         ),
-        ChangeNotifierProxyProvider3<
-          GeminiRepository,
-          MedicineRepository,
-          ReminderRepository,
-          GeminiViewModel
-        >(
+        ChangeNotifierProxyProvider<GeminiRepository, GeminiViewModel>(
           create: (ctx) => GeminiViewModel(
             geminiRepository: ctx.read<GeminiRepository>(),
-            medicineRepository: ctx.read<MedicineRepository>(),
-            reminderRepository: ctx.read<ReminderRepository>(),
           ),
-          update: (_, __, ___, ____, vm) => vm!,
+          update: (_, __, vm) => vm!,
         ),
       ],
       child: MaterialApp(

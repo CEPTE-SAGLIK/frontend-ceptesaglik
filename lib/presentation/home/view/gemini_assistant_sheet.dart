@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/presentation/home/viewmodel/gemini_viewmodel.dart';
-import 'package:health_asistants/presentation/home/viewmodel/home_viewmodel.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class GeminiAssistantSheet extends StatefulWidget {
-  const GeminiAssistantSheet({super.key});
+  final bool showCloseButton;
+  final bool isBottomSheet;
+
+  const GeminiAssistantSheet({
+    super.key,
+    this.showCloseButton = true,
+    this.isBottomSheet = true,
+  });
 
   @override
   State<GeminiAssistantSheet> createState() => _GeminiAssistantSheetState();
@@ -14,6 +20,7 @@ class GeminiAssistantSheet extends StatefulWidget {
 
 class _GeminiAssistantSheetState extends State<GeminiAssistantSheet> {
   final TextEditingController _textController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _isListening = false;
 
@@ -57,102 +64,139 @@ class _GeminiAssistantSheetState extends State<GeminiAssistantSheet> {
   @override
   void dispose() {
     _textController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _sendMessage(GeminiViewModel viewModel) async {
+    final text = _textController.text.trim();
+    if (text.isEmpty || viewModel.isLoading) return;
+
+    _textController.clear();
+    await viewModel.sendMessage(text);
+    _scrollToBottom();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    // Dinamik olarak ViewModel'ı izle
     return Consumer<GeminiViewModel>(
       builder: (context, viewModel, child) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 16,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    "🪄 Yapay Zeka Asistanı",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+        final chatContent = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "🪄 Yapay Zeka Asistanı",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                if (widget.showCloseButton)
                   IconButton(
                     icon: const Icon(Icons.close),
-                    onPressed: () {
-                      viewModel.reset();
-                      Navigator.pop(context);
-                    },
-                  )
-                ],
-              ),
-              const Divider(),
-              const SizedBox(height: 8),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+              ],
+            ),
+            const Divider(),
+            Expanded(
+              child: _buildMessages(viewModel),
+            ),
+            const SizedBox(height: 8),
+            _buildInput(viewModel),
+          ],
+        );
 
-              // İçerik (Duruma göre)
-              _buildContent(context, viewModel),
+        if (!widget.isBottomSheet) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: chatContent,
+            ),
+          );
+        }
 
-            ],
+        return SizedBox(
+          height: MediaQuery.of(context).size.height * 0.8,
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 16,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            ),
+            child: chatContent,
           ),
         );
       },
     );
   }
 
-  Widget _buildContent(BuildContext context, GeminiViewModel viewModel) {
-    switch (viewModel.status) {
-      case GeminiStatus.analyzing:
-      case GeminiStatus.saving:
-        return const Padding(
-          padding: EdgeInsets.symmetric(vertical: 32.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text(
-                "Yapay zeka analiz ediyor... 🪄",
-                style: TextStyle(fontSize: 16),
+  Widget _buildMessages(GeminiViewModel viewModel) {
+    final messages = viewModel.messages;
+    final hasMessages = messages.isNotEmpty;
+    final itemCount = hasMessages
+        ? messages.length + (viewModel.isLoading ? 1 : 0)
+        : 1;
+
+    return ListView.builder(
+      controller: _scrollController,
+      itemCount: itemCount,
+      itemBuilder: (context, index) {
+        if (!hasMessages) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.only(top: 40),
+              child: Text(
+                "Mesajını yaz, birlikte planlayalım.",
+                style: TextStyle(color: Colors.grey),
               ),
-            ],
+            ),
+          );
+        }
+
+        if (viewModel.isLoading && index == messages.length) {
+          return const _TypingBubble();
+        }
+
+        final message = messages[index];
+        return Align(
+          alignment:
+              message.isUser ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 6),
+            padding: const EdgeInsets.all(12),
+            constraints: const BoxConstraints(maxWidth: 320),
+            decoration: BoxDecoration(
+              color: message.isUser
+                  ? AppColors.primaryBlue
+                  : (message.isError ? Colors.red.shade50 : Colors.grey.shade100),
+              borderRadius: BorderRadius.circular(14),
+              border: message.isError
+                  ? Border.all(color: Colors.red.shade300)
+                  : null,
+            ),
+            child: Text(
+              message.text,
+              style: TextStyle(
+                color: message.isUser ? Colors.white : Colors.black87,
+              ),
+            ),
           ),
         );
-
-      case GeminiStatus.success:
-        return _buildResults(context, viewModel);
-
-      case GeminiStatus.error:
-        return Column(
-          children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 48),
-            const SizedBox(height: 16),
-            Text(
-              viewModel.errorMessage ?? "Bilinmeyen bir hata oluştu.",
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.red),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => viewModel.reset(),
-              child: const Text("Tekrar Dene"),
-            )
-          ],
-        );
-
-      case GeminiStatus.saved:
-      case GeminiStatus.initial:
-        return _buildInput(viewModel);
-    }
+      },
+    );
   }
 
   Widget _buildInput(GeminiViewModel viewModel) {
@@ -165,9 +209,12 @@ class _GeminiAssistantSheetState extends State<GeminiAssistantSheet> {
         const SizedBox(height: 16),
         TextField(
           controller: _textController,
-          maxLines: 3,
+          minLines: 1,
+          maxLines: 4,
+          textInputAction: TextInputAction.send,
+          onSubmitted: (_) => _sendMessage(viewModel),
           decoration: InputDecoration(
-            hintText: "Asistana söyle...",
+            hintText: "Mesajını yaz...",
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -190,91 +237,43 @@ class _GeminiAssistantSheetState extends State<GeminiAssistantSheet> {
               borderRadius: BorderRadius.circular(12),
             ),
           ),
-          onPressed: () {
-            if (_textController.text.trim().isNotEmpty) {
-              viewModel.analyzeText(_textController.text);
-            }
-          },
-          child: const Text("Analiz Et"),
+          onPressed: viewModel.isLoading
+              ? null
+              : () => _sendMessage(viewModel),
+          child: const Text("Gönder"),
         ),
       ],
     );
   }
+}
 
-  Widget _buildResults(BuildContext context, GeminiViewModel viewModel) {
-    final data = viewModel.analysisResponse;
-    if (data == null) return const SizedBox.shrink();
+class _TypingBubble extends StatelessWidget {
+  const _TypingBubble();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Asistanımız şunları tespit etti:",
-          style: TextStyle(fontWeight: FontWeight.bold),
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(14),
         ),
-        const SizedBox(height: 16),
-
-        // İlaçlar
-        const Text("💊 İlaçlar:", style: TextStyle(fontWeight: FontWeight.bold)),
-        if (data.medicines.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(left: 8.0, top: 4.0),
-            child: Text("Bulunamadı.", style: TextStyle(color: Colors.grey)),
-          )
-        else
-          ...data.medicines.map((m) => Padding(
-                padding: const EdgeInsets.only(left: 8.0, top: 4.0),
-                child: Text("• ${m.name} (${m.timesPerDay} kez, ${m.usageInstructions ?? ''})"),
-              )),
-        
-        const SizedBox(height: 16),
-
-        // Hatırlatıcılar
-        const Text("📅 Hatırlatıcılar:", style: TextStyle(fontWeight: FontWeight.bold)),
-        if (data.reminders.isEmpty)
-           const Padding(
-            padding: EdgeInsets.only(left: 8.0, top: 4.0),
-            child: Text("Bulunamadı.", style: TextStyle(color: Colors.grey)),
-          )
-        else
-          ...data.reminders.map((r) => Padding(
-                padding: const EdgeInsets.only(left: 8.0, top: 4.0),
-                child: Text("• ${r.title} (${r.dateTime.toLocal()})"),
-              )),
-
-        const SizedBox(height: 24),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primaryBlue,
-            foregroundColor: Colors.white,
-            minimumSize: const Size(double.infinity, 50),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
             ),
-          ),
-          onPressed: () async {
-             // Kişi Id'si alımı - Şimdilik HomeViewModel üzerinden veya varsayılan kullanılabilir
-             final personId = context.read<HomeViewModel>().currentPerson?.id ?? 'default';
-             final success = await viewModel.saveParsedResults(personId);
-             
-             if (success && context.mounted) {
-               viewModel.reset();
-               context.read<HomeViewModel>().loadHomeData();
-               Navigator.pop(context); // Kapat
-               ScaffoldMessenger.of(context).showSnackBar(
-                 const SnackBar(content: Text('Kayıtlar başarıyla eklendi! ✨'))
-               );
-             }
-          },
-          child: const Text("Kaydet ve Paneli Kapat"),
+            SizedBox(width: 8),
+            Text("Yazıyor..."),
+          ],
         ),
-        const SizedBox(height: 8),
-        TextButton(
-          onPressed: () => viewModel.reset(),
-          style: TextButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-          child: const Text("Vazgeç"),
-        )
-      ],
+      ),
     );
   }
 }

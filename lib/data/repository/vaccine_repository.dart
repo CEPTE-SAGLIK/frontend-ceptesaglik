@@ -111,6 +111,29 @@ class VaccineRepository extends BaseRepository {
     }
   }
 
+  /// Çocuğun Manuel Giriş bölümüne aşı ekler → `/api/children/{childId}/vaccines`
+  /// Backend mevcut "Manuel Giriş" schedule varsa ona ekler, yoksa yeni oluşturur.
+  Future<Result<String>> addChildManualVaccine({
+    required String childId,
+    required String name,
+    required DateTime date,
+  }) async {
+    try {
+      final response = await apiClient.post<Map<String, dynamic>>(
+        '/api/children/$childId/vaccines',
+        body: {
+          'VaccineName': name,
+          'DateAdministered': date.toIso8601String(),
+        },
+        fromJson: (json) => json,
+      );
+      if (response.isSuccess) return Result.success('');
+      return Result.failure(response.errorMessage ?? 'Aşı eklenemedi');
+    } catch (e) {
+      return Result.failure(formatError(e));
+    }
+  }
+
   Future<Result<bool>> updateStatus(String vaccineId, bool completed) async {
     try {
       final response = await apiClient.post<dynamic>(

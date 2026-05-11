@@ -55,6 +55,9 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
         centerTitle: true,
         bottom: TabBar(
           controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
           tabs: const [
             Tab(icon: Icon(Icons.person_outline, size: 16), text: 'Kişisel'),
             Tab(

@@ -227,6 +227,10 @@ class AddReminderViewModel extends ChangeNotifier {
       if (familyResult.isSuccess && familyResult.data != null) {
         _persons.addAll(familyResult.data!);
       }
+      final childrenResult = await _userRepository.getChildren();
+      if (childrenResult.isSuccess && childrenResult.data != null) {
+        _persons.addAll(childrenResult.data!);
+      }
       _selectedPerson = _selfPerson;
       notifyListeners();
     } catch (_) {
@@ -307,24 +311,41 @@ class AddReminderViewModel extends ChangeNotifier {
         finalTitle = _title;
       }
 
-      // İlaç türü seçildiyse önce Medicine kaydı oluştur
-      String? linkedMedicineId;
+      // İlaç türü: Medicine kaydı oluştur; backend otomatik Reminder ekler
       if (selectedReminderType.type == ReminderType.medicine &&
           _medicineRepository != null) {
+        final targetPersonId =
+            (!isSelf && _selectedPerson != null) ? _selectedPerson!.id : null;
         final medicine = Medicine(
           id: _uuid.v4(),
-          name: _title,
+          name: finalTitle,
           frequencyType: _toFrequencyType(),
           timesPerDay: _timesPerDay(),
           reminderTimes: [reminderDateTime],
           startDate: DateTime(now.year, now.month, now.day),
           notes: _description,
-          personId: _personId,
+          personId: targetPersonId,
         );
         final medResult = await _medicineRepository.create(medicine);
-        if (medResult.isSuccess) {
-          linkedMedicineId = medResult.data?.id;
+        if (!medResult.isSuccess) {
+          _status = AddReminderStatus.error;
+          _errorMessage = medResult.error ?? 'İlaç kaydedilemedi';
+          notifyListeners();
+          return null;
         }
+        _status = AddReminderStatus.saved;
+        notifyListeners();
+        return Reminder(
+          id: medResult.data?.id ?? _uuid.v4(),
+          personId: _personId!,
+          title: finalTitle,
+          description: _description,
+          type: selectedReminderType.type,
+          dateTime: reminderDateTime,
+          repeatType: _repeatType,
+          isActive: true,
+          createdAt: now,
+        );
       }
 
       final reminder = Reminder(
@@ -337,24 +358,53 @@ class AddReminderViewModel extends ChangeNotifier {
         repeatType: _repeatType,
         isActive: true,
         createdAt: now,
-        relatedItemId: linkedMedicineId,
       );
 
       // Aşı türü seçildiyse Vaccine tablosuna da kaydet
       if (selectedReminderType.type == ReminderType.vaccine &&
           _vaccineRepository != null &&
           _userRepository != null) {
-        final targetId = (!isSelf && _selectedPerson != null)
-            ? _selectedPerson!.id
-            : (await _userRepository.getCurrentPerson()).data?.id;
+        final targetPerson = (!isSelf && _selectedPerson != null)
+            ? _selectedPerson
+            : null;
+        final targetId = targetPerson?.id ??
+            (await _userRepository.getCurrentPerson()).data?.id;
         if (targetId != null) {
-          await _vaccineRepository.addVaccine(
-            targetId: targetId,
-            isChild: false,
-            name: _title,
-            date: reminderDateTime,
-            description: _description,
-          );
+          if (targetPerson?.isChild == true) {
+            // Çocuk: backend virtual reminder üretir; ayrıca reminder oluşturma
+            final vaccineResult = await _vaccineRepository.addChildManualVaccine(
+              childId: targetId,
+              name: _title,
+              date: reminderDateTime,
+            );
+            if (vaccineResult.isSuccess) {
+              _status = AddReminderStatus.saved;
+              notifyListeners();
+              return Reminder(
+                id: _uuid.v4(),
+                personId: _personId!,
+                title: finalTitle,
+                description: _description,
+                type: selectedReminderType.type,
+                dateTime: reminderDateTime,
+                repeatType: _repeatType,
+                isActive: true,
+                createdAt: now,
+              );
+            }
+            _status = AddReminderStatus.error;
+            _errorMessage = vaccineResult.error ?? 'Aşı kaydedilemedi';
+            notifyListeners();
+            return null;
+          } else {
+            await _vaccineRepository.addVaccine(
+              targetId: targetId,
+              isChild: false,
+              name: _title,
+              date: reminderDateTime,
+              description: _description,
+            );
+          }
         }
       }
 

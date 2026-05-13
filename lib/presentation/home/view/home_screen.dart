@@ -583,35 +583,66 @@ class _ReminderTile extends StatelessWidget {
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      reminder.title,
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        fontWeight: FontWeight.w600,
-                        decoration: isCompleted
-                            ? TextDecoration.lineThrough
-                            : null,
-                        color: isCompleted
-                            ? AppColors.textSecondary
-                            : AppColors.textPrimary,
-                      ),
-                    ),
-                    if (reminder.description != null)
+                child: Builder(builder: (context) {
+                  final sepIdx = reminder.title.indexOf(' — ');
+                  final displayTitle = sepIdx > 0
+                      ? reminder.title.substring(sepIdx + 3)
+                      : reminder.title;
+                  final personName =
+                      sepIdx > 0 ? reminder.title.substring(0, sepIdx) : null;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        reminder.description!,
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.textSecondary,
+                        displayTitle,
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          fontWeight: FontWeight.w600,
                           decoration: isCompleted
                               ? TextDecoration.lineThrough
                               : null,
+                          color: isCompleted
+                              ? AppColors.textSecondary
+                              : AppColors.textPrimary,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                  ],
-                ),
+                      if (personName != null) ...[
+                        const SizedBox(height: 2),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: isCompleted
+                                ? AppColors.textSecondary.withValues(alpha: 0.1)
+                                : _getTypeColor().withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            personName,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: isCompleted
+                                  ? AppColors.textSecondary
+                                  : _getTypeColor(),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (reminder.description != null)
+                        Text(
+                          reminder.description!,
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.textSecondary,
+                            decoration: isCompleted
+                                ? TextDecoration.lineThrough
+                                : null,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  );
+                }),
               ),
               const SizedBox(width: AppSpacing.sm),
               Text(
@@ -733,24 +764,50 @@ class _AppointmentTile extends StatelessWidget {
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (subtitle != null)
+              child: Builder(builder: (context) {
+                final sepIdx = title.indexOf(' — ');
+                final displayTitle =
+                    sepIdx > 0 ? title.substring(sepIdx + 3) : title;
+                final personName =
+                    sepIdx > 0 ? title.substring(0, sepIdx) : null;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      subtitle!,
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.textSecondary,
+                      displayTitle,
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                ],
-              ),
+                    if (personName != null) ...[
+                      const SizedBox(height: 2),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppColors.catTeeth.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          personName,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: AppColors.catTeeth,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (subtitle != null)
+                      Text(
+                        subtitle!,
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                  ],
+                );
+              }),
             ),
             Text(
               dateText,

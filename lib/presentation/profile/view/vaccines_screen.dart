@@ -566,13 +566,14 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
                   fontSize: 13,
                 ),
               ),
-              Text(
-                'Planlanan: ${_formatDate(schedule.scheduledDate)}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textTertiary,
+              if (!isManual)
+                Text(
+                  'Planlanan: ${_formatDate(schedule.scheduledDate)}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textTertiary,
+                  ),
                 ),
-              ),
             ],
           ),
           children: [
@@ -712,6 +713,18 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
                           style: const TextStyle(
                             fontSize: 11,
                             color: AppColors.success,
+                          ),
+                        ),
+                      ] else ...[
+                        const Text(
+                          ' • ',
+                          style: TextStyle(color: AppColors.textTertiary),
+                        ),
+                        Text(
+                          _formatDate(vaccine.date),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: overdue ? AppColors.error : AppColors.textTertiary,
                           ),
                         ),
                       ],
@@ -1396,8 +1409,9 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
     BabyVaccineSchedule schedule,
   ) {
     final nameController = TextEditingController();
-    final doseController = TextEditingController();
+    final doseController = TextEditingController(text: '1. Doz');
     VaccineStatus initialStatus = VaccineStatus.pending;
+    DateTime selectedDate = schedule.scheduledDate;
 
     showDialog(
       context: context,
@@ -1426,6 +1440,35 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.calendar_today_rounded,
+                    color: AppColors.primary,
+                  ),
+                  title: const Text('Tarih'),
+                  subtitle: Text(
+                    _formatDate(selectedDate),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.edit_calendar_rounded),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: ctx,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+                      helpText: 'Aşı tarihini seçin',
+                    );
+                    if (picked != null) {
+                      setDialogState(() => selectedDate = picked);
+                    }
+                  },
+                ),
+                const SizedBox(height: AppSpacing.sm),
                 Wrap(
                   spacing: AppSpacing.sm,
                   crossAxisAlignment: WrapCrossAlignment.center,
@@ -1472,11 +1515,11 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
                 final vaccine = Vaccine(
                   id: '',
                   name: name,
-                  date: schedule.scheduledDate,
+                  date: selectedDate,
                   dose: dose,
                   status: initialStatus,
                   completedDate: initialStatus == VaccineStatus.completed
-                      ? DateTime.now()
+                      ? selectedDate
                       : null,
                 );
                 _viewModel.addVaccineToSchedule(schedule.id, vaccine);

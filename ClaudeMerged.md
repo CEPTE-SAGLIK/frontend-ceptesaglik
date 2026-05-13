@@ -447,4 +447,98 @@ HealthFacilities  ⚠️ Boş — implemente edilmemiş
 
 ---
 
-*Son güncelleme: 2026-05-06*
+## Tamamlanan Değişiklikler (2026-05-06 → 2026-05-13)
+
+### 1. Takvim sıklık sorunu (d8927d0)
+`calendar_viewmodel.dart` — `_occursOnDay()` metodu ile `daily/weekly/monthly` hatırlatıcılar takvimde doğru günlerde gösteriliyor.
+
+### 2. İlaçlarım + butonu (0bcf48c)
+`medicine_list_screen.dart` — İlaç ekleme bottom sheet'i implement edildi (ad, sıklık, saat, not).
+
+### 3. Takvimden ilaç eklenince İlaçlarım'a yansıması (0bcf48c)
+`calendar_viewmodel.dart` — Tip `medicine` olduğunda `MedicineRepository.create()` de çağrılıyor. `main.dart`'ta `ProxyProvider3` olarak güncellendi.
+
+### 4. İlaçlarda sıklık düzenlemesi (4676e3b)
+`add_reminder_viewmodel.dart` + `add_reminder_screen.dart` — FrequencyType parse logic güncellendi; `monthly` enum değeri eklendi. Backend'den gelen PascalCase, label string veya integer (1/2/3) değerlerinin tümü destekleniyor.
+
+### 5. Aşı manuel ekleme (6cd6d4c)
+- `child_repository.dart` → `addVaccineToSchedule()` ve `deleteSchedule()` eklendi
+- `vaccines_screen.dart` + `vaccines_viewmodel.dart` → Manuel aşı ekleme UI ve mantığı
+
+### 6. Kişi bazlı ilaçlar, aşılar ve hatırlatıcılar (586e4fe)
+Tüm ana sekmelerde aktif kişi seçici eklendi. Ekleme ekranları seçili kişinin ID'sini backend'e gönderiyor.
+
+Etkilenen dosyalar:
+- `calendar_screen.dart` → kişi seçimi dropdown
+- `calendar_viewmodel.dart` → kişi filtresi
+- `add_medicine_screen.dart` / `add_medicine_viewmodel.dart` → kişi ID bağlama
+- `add_reminder_screen.dart` / `add_reminder_viewmodel.dart` → kişi ID bağlama
+- `vaccines_screen.dart` / `my_vaccines_viewmodel.dart` → kişi bazlı aşı listesi
+- `vaccine_repository.dart` → kişi bazlı filtreleme
+
+### 7. Hastalık sekmesi durum güncellemesi (3977ac9)
+`illness_repository.dart` — `updateStatus()` eklendi (`PATCH /api/Illnesses/{id}/status`). `illnesses_screen.dart` + `illness_viewmodel.dart` güncellendi.
+
+### 8. Kişi bazlı hastalıklarım sekmesi (72ec6ce)
+`illnesses_screen.dart` + `illness_viewmodel.dart` — tam kişi seçici entegrasyonu. `illness_repository.dart` → `getPersons()` + `getIllnessesByPerson()` eklendi.
+
+### 9. Çocuklara özel bildirim ve kişi bazlı alerjiler (26c9a96)
+**Model değişikliği:** `person.dart` → `isChild: bool` alanı eklendi (varsayılan: `false`).
+
+**FrequencyType parse güçlendirmesi:** `medicine.dart` → PascalCase (`"Weekly"`), label (`"Haftada Bir"`) ve integer string (`"2"`) değerlerinin tümü destekleniyor.
+
+**Çocukların kişi listesine dahil edilmesi:** `user_repository.dart` → `_childJsonToPerson()` helper ile `/api/Children` çocukları `Person` listesine dönüştürülüp tüm kişi seçicilerde görünüyor.
+
+**Yeni repository metotları:**
+- `vaccine_repository.dart` → `addChildManualVaccine()` → `POST /api/children/{childId}/vaccines`
+
+**Güncellenen UI bileşenleri:**
+- `allergies_screen.dart` + `allergy_viewmodel.dart` → kişi seçici (çocuklar dahil)
+- `medicine_list_screen.dart` / `add_medicine_viewmodel.dart` → çocuk ID desteği
+- `vaccines_screen.dart` / `vaccines_viewmodel.dart` → çocuklara özel bildirim UI
+- `reminder_list_screen.dart` / `add_reminder_viewmodel.dart` → çocuk bazlı hatırlatıcı
+
+### 10. Kişi rozeti, tarih seçici ve küçük düzeltmeler (unstaged — 2026-05-13)
+
+**Android uygulama adı:**
+`android/AndroidManifest.xml` → `android:label` "health_asistants" → "Sağlık Pusulası" olarak güncellendi.
+
+**Kişi rozeti gösterimi (takvim + ana sayfa):**
+`calendar_screen.dart` — event tile'larında başlık `"KişiAdı — başlık"` formatında ise kişi adı renkli badge olarak gösteriliyor.
+`home_screen.dart` — `_ReminderTile` ve `_AppointmentTile` widget'larında aynı `" — "` ayrıştırma mantığı uygulandı.
+
+**Ana sayfada doğru kullanıcı adı:**
+`home_viewmodel.dart` → `personName` getter'ında öncelik sırası düzeltildi: `_currentUser` (giriş yapan kullanıcı) artık `_currentPerson` (kişi profili) önünde kontrol ediliyor.
+
+**Takvim viewmodel bug fix:**
+`calendar_viewmodel.dart` → Çocuğa manuel aşı eklenirken `title` yerine `finalTitle` (`"KişiAdı — aşıAdı"` formatındaki nihai başlık) backend'e gönderiliyor.
+
+**Frequency enum — "Tekrarı Yok" seçeneği:**
+`frequency_selector.dart` → `Frequency.noRepeat("Tekrarı Yok")` enum değeri eklendi.
+`add_reminder_viewmodel.dart` → `"Tekrarı Yok"` etiketi `RepeatType.none` olarak map edildi.
+
+**Hatırlatıcı ekleme — tarih seçici:**
+`add_reminder_screen.dart` → Saat seçicinin üstüne tıklanabilir tarih seçici kartı eklendi; `_formatDate()` helper eklendi.
+`add_reminder_viewmodel.dart` → `_selectedDate` state, `setSelectedDate()` metodu; `saveReminder()` artık `DateTime.now()` yerine seçilen tarihi kullanıyor. `reset()` de güncellendi.
+
+**Aşı ekleme dialogu iyileştirmeleri:**
+`vaccines_screen.dart`:
+- Doz alanı varsayılan değeri "1. Doz" olarak ayarlandı
+- Dialog'a tarih seçici (`ListTile` + `showDatePicker`) eklendi; `selectedDate` state ile yönetiliyor
+- Manuel aşılarda "Planlanan: ..." satırı gizlendi (`isManual` kontrolü)
+- Manuel aşı listesinde planlanan tarih yerine gerçek aşı tarihi gösteriliyor
+- Eklenen aşının `date` ve `completedDate` alanları seçilen tarihle dolduruluyor
+
+---
+
+## Bilinen Açık Konular
+
+| Konu | Durum |
+|------|-------|
+| `HealthFacilitiesController` (backend) | ⚠️ Boş — harita ekranı çalışmıyor |
+| İlaç düzenleme ekranı (`_MedicineDetailSheet` → Düzenle) | ⚠️ TODO |
+| Takvimden eklenen eski ilaçlar (MedicineId bağlantısı olmayan) takvimde çift görünmesi | ⚠️ Backend `GetAll` sanal reminder mantığı |
+
+---
+
+*Son güncelleme: 2026-05-13*

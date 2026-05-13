@@ -268,7 +268,7 @@ class CalendarViewModel extends ChangeNotifier {
           // Çocuk: backend virtual reminder üretir; ayrıca reminder oluşturma
           final vaccineResult = await _vaccineRepository.addChildManualVaccine(
             childId: vaccineTargetId,
-            name: title,
+            name: finalTitle,
             date: dateTime,
           );
           if (vaccineResult.isSuccess) {

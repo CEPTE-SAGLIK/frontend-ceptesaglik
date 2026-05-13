@@ -128,6 +128,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final timeFormat = DateFormat('HH:mm');
     final eventColor = viewModel.getEventColor(event.type);
     final eventIcon = viewModel.getEventIcon(event.type);
+    final sepIdx = event.title.indexOf(' — ');
+    final displayTitle =
+        sepIdx > 0 ? event.title.substring(sepIdx + 3) : event.title;
+    final personName = sepIdx > 0 ? event.title.substring(0, sepIdx) : null;
 
     return Dismissible(
       key: Key(event.id),
@@ -183,7 +187,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    event.title,
+                    displayTitle,
                     style: AppTextStyles.titleSmall.copyWith(
                       fontWeight: FontWeight.bold,
                       decoration: !event.isActive
@@ -191,6 +195,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           : null,
                     ),
                   ),
+                  if (personName != null) ...[
+                    const SizedBox(height: 3),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: eventColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        personName,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: eventColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                   if (event.description != null) ...[
                     const SizedBox(height: 2),
                     Text(

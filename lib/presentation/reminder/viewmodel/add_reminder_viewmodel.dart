@@ -51,6 +51,7 @@ class AddReminderViewModel extends ChangeNotifier {
   String _title = '';
   String? _description;
   TimeOfDay? _selectedTime;
+  DateTime _selectedDate = DateTime.now();
   RepeatType _repeatType = RepeatType.none;
   String? _selectedFrequencyLabel;
   int _selectedTypeIndex = 0;
@@ -107,6 +108,7 @@ class AddReminderViewModel extends ChangeNotifier {
   String get title => _title;
   String? get description => _description;
   TimeOfDay? get selectedTime => _selectedTime;
+  DateTime get selectedDate => _selectedDate;
   RepeatType get repeatType => _repeatType;
   String? get selectedFrequencyLabel => _selectedFrequencyLabel;
   int get selectedTypeIndex => _selectedTypeIndex;
@@ -157,6 +159,11 @@ class AddReminderViewModel extends ChangeNotifier {
     }
   }
 
+  void setSelectedDate(DateTime date) {
+    _selectedDate = date;
+    notifyListeners();
+  }
+
   void setRepeatType(RepeatType type) {
     if (_repeatType != type) {
       _repeatType = type;
@@ -171,6 +178,9 @@ class AddReminderViewModel extends ChangeNotifier {
 
     RepeatType newType;
     switch (frequency) {
+      case 'Tekrarı Yok':
+        newType = RepeatType.none;
+        break;
       case 'Günde 1 kere':
       case 'Günde 2 kere':
         newType = RepeatType.daily;
@@ -288,9 +298,9 @@ class AddReminderViewModel extends ChangeNotifier {
 
       final now = DateTime.now();
       final reminderDateTime = DateTime(
-        now.year,
-        now.month,
-        now.day,
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
         _selectedTime!.hour,
         _selectedTime!.minute,
       );
@@ -319,7 +329,7 @@ class AddReminderViewModel extends ChangeNotifier {
           frequencyType: _toFrequencyType(),
           timesPerDay: _timesPerDay(),
           reminderTimes: [reminderDateTime],
-          startDate: DateTime(now.year, now.month, now.day),
+          startDate: DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day),
           notes: _description,
           personId: targetPersonId,
         );
@@ -371,7 +381,7 @@ class AddReminderViewModel extends ChangeNotifier {
             // Çocuk: backend virtual reminder üretir; ayrıca reminder oluşturma
             final vaccineResult = await _vaccineRepository.addChildManualVaccine(
               childId: targetId,
-              name: _title,
+              name: finalTitle,
               date: reminderDateTime,
             );
             if (vaccineResult.isSuccess) {
@@ -455,6 +465,7 @@ class AddReminderViewModel extends ChangeNotifier {
     _title = '';
     _description = null;
     _selectedTime = null;
+    _selectedDate = DateTime.now();
     _repeatType = RepeatType.none;
     _selectedFrequencyLabel = null;
     _selectedTypeIndex = 0;

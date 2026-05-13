@@ -107,28 +107,46 @@ class NotificationService {
         return;
     }
 
-    // Tekrarlayan bildirimler için zamanı ileriye taşı (geçmişte ise)
-    var scheduledTime = reminder.dateTime;
     final now = DateTime.now();
+    var scheduledTime = reminder.dateTime;
+
     if (scheduledTime.isBefore(now)) {
       switch (reminder.repeatType) {
         case RepeatType.daily:
-          while (scheduledTime.isBefore(now)) {
+          // Kaç gün geride olduğunu hesapla ve tek seferde atla
+          final daysDiff = now.difference(scheduledTime).inDays + 1;
+          scheduledTime = scheduledTime.add(Duration(days: daysDiff));
+          // Hâlâ gerideyse (saat farkı nedeniyle) bir gün daha ekle
+          if (scheduledTime.isBefore(now)) {
             scheduledTime = scheduledTime.add(const Duration(days: 1));
           }
         case RepeatType.weekly:
-          while (scheduledTime.isBefore(now)) {
+          final weeksDiff = (now.difference(scheduledTime).inDays ~/ 7) + 1;
+          scheduledTime = scheduledTime.add(Duration(days: weeksDiff * 7));
+          if (scheduledTime.isBefore(now)) {
             scheduledTime = scheduledTime.add(const Duration(days: 7));
           }
         case RepeatType.monthly:
-          while (scheduledTime.isBefore(now)) {
-            scheduledTime = DateTime(
-              scheduledTime.year,
-              scheduledTime.month + 1,
-              scheduledTime.day,
-              scheduledTime.hour,
-              scheduledTime.minute,
-            );
+          // Gün taşmasından kaçınmak için orijinal günü koru
+          final originalDay = reminder.dateTime.day;
+          final monthsDiff =
+              (now.year - scheduledTime.year) * 12 +
+              (now.month - scheduledTime.month) +
+              1;
+          var targetYear = scheduledTime.year + (scheduledTime.month + monthsDiff - 1) ~/ 12;
+          var targetMonth = (scheduledTime.month + monthsDiff - 1) % 12 + 1;
+          // Hedef ayda o gün yoksa (örn. Şubat 31), ayın son gününü kullan
+          final daysInMonth = DateTime(targetYear, targetMonth + 1, 0).day;
+          final targetDay = originalDay.clamp(1, daysInMonth);
+          scheduledTime = DateTime(targetYear, targetMonth, targetDay,
+              reminder.dateTime.hour, reminder.dateTime.minute);
+          if (scheduledTime.isBefore(now)) {
+            targetMonth++;
+            if (targetMonth > 12) { targetMonth = 1; targetYear++; }
+            final daysInNext = DateTime(targetYear, targetMonth + 1, 0).day;
+            scheduledTime = DateTime(targetYear, targetMonth,
+                originalDay.clamp(1, daysInNext),
+                reminder.dateTime.hour, reminder.dateTime.minute);
           }
         case RepeatType.none:
           break;

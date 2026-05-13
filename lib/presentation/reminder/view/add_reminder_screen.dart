@@ -44,8 +44,16 @@ class _AddReminderContentState extends State<_AddReminderContent> {
     AddReminderViewModel viewModel,
   ) async {
     final reminder = await viewModel.saveReminder();
-    if (reminder != null && context.mounted) {
+    if (!context.mounted) return;
+    if (reminder != null) {
       Navigator.pop(context, reminder);
+    } else if (viewModel.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(viewModel.errorMessage!),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
     }
   }
 
@@ -225,17 +233,6 @@ class _AddReminderContentState extends State<_AddReminderContent> {
                   borderRadius: 30,
                 ),
 
-                // Hata mesajı
-                if (viewModel.errorMessage != null) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    viewModel.errorMessage!,
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.error,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
               ],
             ),
           ),

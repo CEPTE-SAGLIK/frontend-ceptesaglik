@@ -3,13 +3,13 @@ import 'package:http/http.dart' as http;
 
 class ApiClient {
   //static const String baseUrl = 'http://192.168.1.151:5105';
-  static const String baseUrl = 'http://10.0.2.2:5105';
+  static const String baseUrl = 'http://192.168.206.155:5105';
   String? _authToken;
   String? _refreshToken;
 
   ApiClient({String? authToken, String? refreshToken})
-      : _authToken = authToken,
-        _refreshToken = refreshToken;
+    : _authToken = authToken,
+      _refreshToken = refreshToken;
 
   void setAuthToken(String? token) => _authToken = token;
   void setRefreshToken(String? token) => _refreshToken = token;
@@ -32,8 +32,11 @@ class ApiClient {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final inner = data['data'] ?? data;
-        final newToken = inner['token'] ?? inner['Token'] ??
-            inner['accessToken'] ?? inner['AccessToken'];
+        final newToken =
+            inner['token'] ??
+            inner['Token'] ??
+            inner['accessToken'] ??
+            inner['AccessToken'];
         if (newToken != null) {
           _authToken = newToken.toString();
           final newRefresh = inner['refreshToken'] ?? inner['RefreshToken'];
@@ -52,8 +55,9 @@ class ApiClient {
     T Function(dynamic)? fromJson,
   }) async {
     try {
-      final uri = Uri.parse('$baseUrl$endpoint')
-          .replace(queryParameters: queryParams);
+      final uri = Uri.parse(
+        '$baseUrl$endpoint',
+      ).replace(queryParameters: queryParams);
       var response = await http.get(uri, headers: _headers);
       if (response.statusCode == 401 && await _tryRefreshToken()) {
         response = await http.get(uri, headers: _headers);
@@ -73,8 +77,7 @@ class ApiClient {
     try {
       final uri = Uri.parse('$baseUrl$endpoint');
       final encoded = body != null ? jsonEncode(body) : null;
-      var response =
-          await http.post(uri, headers: _headers, body: encoded);
+      var response = await http.post(uri, headers: _headers, body: encoded);
       if (response.statusCode == 401 && await _tryRefreshToken()) {
         response = await http.post(uri, headers: _headers, body: encoded);
       }
@@ -93,8 +96,7 @@ class ApiClient {
     try {
       final uri = Uri.parse('$baseUrl$endpoint');
       final encoded = body != null ? jsonEncode(body) : null;
-      var response =
-          await http.put(uri, headers: _headers, body: encoded);
+      var response = await http.put(uri, headers: _headers, body: encoded);
       if (response.statusCode == 401 && await _tryRefreshToken()) {
         response = await http.put(uri, headers: _headers, body: encoded);
       }
@@ -133,13 +135,17 @@ class ApiClient {
       final data = jsonDecode(response.body);
       return ApiResponse.success(fromJson != null ? fromJson(data) : data as T);
     } else if (response.statusCode == 401) {
-      return ApiResponse.error('Oturum süresi doldu. Lütfen yeniden giriş yapın.');
+      return ApiResponse.error(
+        'Oturum süresi doldu. Lütfen yeniden giriş yapın.',
+      );
     } else {
       try {
         final body = jsonDecode(response.body);
         return ApiResponse.error(
-          body['message'] ?? body['Message'] ??
-              body['error'] ?? body['Error'] ??
+          body['message'] ??
+              body['Message'] ??
+              body['error'] ??
+              body['Error'] ??
               'İstek başarısız: ${response.statusCode}',
         );
       } catch (_) {

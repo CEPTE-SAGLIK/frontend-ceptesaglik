@@ -261,8 +261,13 @@ class AddReminderViewModel extends ChangeNotifier {
 
   /// Hatırlatmayı kaydet
   Future<Reminder?> saveReminder() async {
-    if (!isFormValid) {
-      _errorMessage = 'Lütfen tüm alanları doldurun';
+    if (_title.isEmpty) {
+      _errorMessage = 'Lütfen bir başlık girin';
+      notifyListeners();
+      return null;
+    }
+    if (_selectedTime == null) {
+      _errorMessage = 'Lütfen bir saat seçin';
       notifyListeners();
       return null;
     }
@@ -272,7 +277,11 @@ class AddReminderViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      if (_personId == null && _userRepository != null) {
+      // Zaten yüklü kişiyi kullan, yoksa backend'den al
+      if (_personId == null || _personId!.isEmpty) {
+        _personId = _selfPerson?.id ?? _selectedPerson?.id;
+      }
+      if ((_personId == null || _personId!.isEmpty) && _userRepository != null) {
         final userResult = await _userRepository.getCurrentUser();
         if (userResult.isSuccess && userResult.data != null) {
           _personId = userResult.data!.id;
@@ -411,7 +420,7 @@ class AddReminderViewModel extends ChangeNotifier {
     _errorMessage = null;
     _title = '';
     _description = null;
-    _selectedTime = null;
+    _selectedTime = TimeOfDay.now();
     _repeatType = RepeatType.none;
     _selectedFrequencyLabel = null;
     _selectedTypeIndex = 0;

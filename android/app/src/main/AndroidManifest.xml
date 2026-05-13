@@ -8,7 +8,7 @@
 
     <application
         android:usesCleartextTraffic="true"
-        android:label="health_asistants"
+        android:label="Sağlık Pusulası"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 

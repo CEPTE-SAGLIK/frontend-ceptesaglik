@@ -92,7 +92,7 @@ class MedicineRepository extends BaseRepository {
       await _ensureUserId();
       if (_userId == null) return Result.failure('Kullanıcı bilgisi alınamadı');
       final body = _toCreateDto(medicine, _userId!);
-      final response = await apiClient.put<Map<String, dynamic>>(
+      final response = await apiClient.put<dynamic>(
         ApiEndpoints.medicine(medicine.id),
         body: body,
         fromJson: (json) => json,

@@ -81,6 +81,19 @@ class IllnessViewModel extends ChangeNotifier {
     return false;
   }
 
+  Future<bool> updateIllness(
+      String id, String name, String status, String? doctorNotes) async {
+    final result = await _repository.updateIllness(
+        id: id, name: name, status: status, doctorNotes: doctorNotes);
+    if (result.isSuccess) {
+      await fetchIllnesses();
+      return true;
+    }
+    _errorMessage = result.error;
+    notifyListeners();
+    return false;
+  }
+
   Future<bool> deleteIllness(String id) async {
     final result = await _repository.deleteIllness(id);
     if (result.isSuccess) {

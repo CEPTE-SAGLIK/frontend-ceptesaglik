@@ -21,13 +21,13 @@ class _StubUserRepository extends UserRepository {
       ));
 }
 
-class _StubMedicineRepository extends MedicineRepository {
-  _StubMedicineRepository()
-      : super(userRepository: _StubUserRepository());
-}
-
 class _StubVaccineRepository extends VaccineRepository {
   _StubVaccineRepository() : super();
+}
+
+class _StubMedicineRepository extends MedicineRepository {
+  _StubMedicineRepository()
+      : super(apiClient: ApiClient(), userRepository: _StubUserRepository());
 }
 
 void main() {
@@ -39,9 +39,9 @@ void main() {
       repository = ReminderRepository();
       viewModel = CalendarViewModel(
         reminderRepository: repository,
-        medicineRepository: _StubMedicineRepository(),
         userRepository: _StubUserRepository(),
         vaccineRepository: _StubVaccineRepository(),
+        medicineRepository: _StubMedicineRepository(),
       );
     });
 

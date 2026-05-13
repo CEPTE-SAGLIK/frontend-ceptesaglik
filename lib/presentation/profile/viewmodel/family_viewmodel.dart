@@ -104,6 +104,23 @@ class FamilyViewModel extends ChangeNotifier {
     return false;
   }
 
+  Future<bool> updateChild(
+      String id, String name, DateTime birthDate, Gender gender) async {
+    _status = FamilyStatus.saving;
+    _errorMessage = null;
+    notifyListeners();
+
+    final result = await _userRepository.updateChild(id, name, birthDate, gender);
+    if (result.isSuccess) {
+      await loadChildren();
+      return true;
+    }
+    _status = FamilyStatus.error;
+    _errorMessage = result.error ?? 'Güncelleme başarısız';
+    notifyListeners();
+    return false;
+  }
+
   Future<bool> addChild(String name, DateTime birthDate) async {
     _status = FamilyStatus.saving;
     _errorMessage = null;

@@ -3,7 +3,11 @@ import 'package:http/http.dart' as http;
 
 class ApiClient {
   //static const String baseUrl = 'http://192.168.1.151:5105';
+<<<<<<< HEAD
   static const String baseUrl = 'http://192.168.206.155:5105';
+=======
+  static const String baseUrl = 'http://192.168.1.151:5105';
+>>>>>>> 0510fdb04098dbcefff16bbb2380dbd4fa53c517
   String? _authToken;
   String? _refreshToken;
 
@@ -219,7 +223,10 @@ class ApiEndpoints {
   static String childVaccines(String childId) =>
       '/api/children/$childId/vaccines';
 
-  // AI Assistant
+  // Chat (ChatController — POST gövdesi backend DTO ile eşleşmeli)
+  static const String chat = '/api/Chat';
+
+  /// Eski yapılandırılmış analiz uç noktası (ilaç/hatırlatıcı çıkarma).
   static const String aiAnalyze = '/api/ai/analyze';
 
   // Notifications

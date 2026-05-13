@@ -87,12 +87,16 @@ class AddMedicineViewModel extends ChangeNotifier {
     try {
       final selfResult = await _userRepository.getCurrentPerson();
       final familyResult = await _userRepository.getFamilyMembers();
+      final childrenResult = await _userRepository.getChildren();
       if (selfResult.isSuccess && selfResult.data != null) {
         _selfPerson = selfResult.data!;
         _persons.add(selfResult.data!);
       }
       if (familyResult.isSuccess && familyResult.data != null) {
         _persons.addAll(familyResult.data!);
+      }
+      if (childrenResult.isSuccess && childrenResult.data != null) {
+        _persons.addAll(childrenResult.data!);
       }
       _selectedPerson = _selfPerson;
       notifyListeners();

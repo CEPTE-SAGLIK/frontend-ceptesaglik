@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import 'package:health_asistants/data/model/medicine.dart';
 import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/data/model/reminder.dart';
-import 'package:health_asistants/data/model/medicine.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
-import 'package:health_asistants/data/repository/reminder_repository.dart';
 import 'package:health_asistants/data/repository/medicine_repository.dart';
+import 'package:health_asistants/data/repository/reminder_repository.dart';
 import 'package:health_asistants/data/repository/user_repository.dart';
 import 'package:health_asistants/data/repository/vaccine_repository.dart';
 
@@ -29,9 +29,9 @@ class EventTypeItem {
 
 class CalendarViewModel extends ChangeNotifier {
   final ReminderRepository _reminderRepository;
-  final MedicineRepository _medicineRepository;
   final UserRepository _userRepository;
   final VaccineRepository _vaccineRepository;
+  final MedicineRepository _medicineRepository;
   final _uuid = const Uuid();
 
   CalendarStatus _status = CalendarStatus.initial;
@@ -51,13 +51,13 @@ class CalendarViewModel extends ChangeNotifier {
 
   CalendarViewModel({
     required ReminderRepository reminderRepository,
-    required MedicineRepository medicineRepository,
     required UserRepository userRepository,
     required VaccineRepository vaccineRepository,
+    required MedicineRepository medicineRepository,
   })  : _reminderRepository = reminderRepository,
-        _medicineRepository = medicineRepository,
         _userRepository = userRepository,
-        _vaccineRepository = vaccineRepository;
+        _vaccineRepository = vaccineRepository,
+        _medicineRepository = medicineRepository;
 
   // Etkinlik türleri
 
@@ -104,12 +104,16 @@ class CalendarViewModel extends ChangeNotifier {
     try {
       final selfResult = await _userRepository.getCurrentPerson();
       final familyResult = await _userRepository.getFamilyMembers();
+      final childrenResult = await _userRepository.getChildren();
       if (selfResult.isSuccess && selfResult.data != null) {
         _selfPerson = selfResult.data!;
         _persons.add(selfResult.data!);
       }
       if (familyResult.isSuccess && familyResult.data != null) {
         _persons.addAll(familyResult.data!);
+      }
+      if (childrenResult.isSuccess && childrenResult.data != null) {
+        _persons.addAll(childrenResult.data!);
       }
       notifyListeners();
     } catch (_) {}
@@ -165,18 +169,6 @@ class CalendarViewModel extends ChangeNotifier {
     return _getEventsForDay(day);
   }
 
-  FrequencyType _repeatToFrequency(RepeatType repeat) {
-    switch (repeat) {
-      case RepeatType.weekly:
-        return FrequencyType.weekly;
-      case RepeatType.monthly:
-        return FrequencyType.monthly;
-      case RepeatType.daily:
-      case RepeatType.none:
-        return FrequencyType.daily;
-    }
-  }
-
   /// Tarihi normalize eder (saat bilgisini kaldırır)
   DateTime _normalizeDate(DateTime date) {
     return DateTime(date.year, date.month, date.day);
@@ -230,6 +222,28 @@ class CalendarViewModel extends ChangeNotifier {
         ? '$personName — $title'
         : title;
 
+    // İlaç türü: Medicine kaydı oluştur; backend otomatik Reminder ekler
+    if (type == ReminderType.medicine) {
+      final medicine = Medicine(
+        id: _uuid.v4(),
+        name: finalTitle,
+        frequencyType: _repeatToFrequency(repeatType),
+        timesPerDay: 1,
+        reminderTimes: [dateTime],
+        startDate: DateTime(_selectedDay.year, _selectedDay.month, _selectedDay.day),
+        notes: description,
+        personId: targetPersonId,
+      );
+      final medResult = await _medicineRepository.create(medicine);
+      if (medResult.isSuccess) {
+        await loadEvents();
+        return true;
+      }
+      _errorMessage = medResult.error ?? 'İlaç kaydedilemedi';
+      notifyListeners();
+      return false;
+    }
+
     final reminder = Reminder(
       id: _uuid.v4(),
       personId: _userId!,
@@ -242,46 +256,41 @@ class CalendarViewModel extends ChangeNotifier {
       createdAt: DateTime.now(),
     );
 
-    // İlaç türündeki hatırlatıcılar Medicine tablosuna da kaydedilsin;
-    // oluşan Medicine ID'si Reminder'a bağlanır ki backend sanal hatırlatıcı eklemesin.
-    String? linkedMedicineId;
-    if (type == ReminderType.medicine) {
-      final medicine = Medicine(
-        id: _uuid.v4(),
-        name: title,
-        frequencyType: _repeatToFrequency(repeatType),
-        timesPerDay: 1,
-        reminderTimes: [dateTime],
-        startDate: _normalizeDate(_selectedDay),
-        notes: description,
-      );
-      final medResult = await _medicineRepository.create(medicine);
-      if (medResult.isSuccess) {
-        linkedMedicineId = medResult.data?.id;
-      }
-    }
-
     // Aşı türündeki etkinlikler Vaccine tablosuna da kaydedilsin
     if (type == ReminderType.vaccine) {
-      final vaccineTargetId = targetPersonId ??
-          (await _userRepository.getCurrentPerson()).data?.id;
+      final targetPerson = targetPersonId != null
+          ? _persons.where((p) => p.id == targetPersonId).firstOrNull
+          : null;
+      final vaccineTargetId =
+          targetPersonId ?? (await _userRepository.getCurrentPerson()).data?.id;
       if (vaccineTargetId != null) {
-        await _vaccineRepository.addVaccine(
-          targetId: vaccineTargetId,
-          isChild: false,
-          name: title,
-          date: dateTime,
-          description: description,
-        );
+        if (targetPerson?.isChild == true) {
+          // Çocuk: backend virtual reminder üretir; ayrıca reminder oluşturma
+          final vaccineResult = await _vaccineRepository.addChildManualVaccine(
+            childId: vaccineTargetId,
+            name: title,
+            date: dateTime,
+          );
+          if (vaccineResult.isSuccess) {
+            await loadEvents();
+            return true;
+          }
+          _errorMessage = vaccineResult.error ?? 'Aşı kaydedilemedi';
+          notifyListeners();
+          return false;
+        } else {
+          await _vaccineRepository.addVaccine(
+            targetId: vaccineTargetId,
+            isChild: false,
+            name: title,
+            date: dateTime,
+            description: description,
+          );
+        }
       }
     }
 
-    // relatedItemId ile Reminder ↔ Medicine bağlantısını kur
-    final linkedReminder = linkedMedicineId != null
-        ? reminder.copyWith(relatedItemId: linkedMedicineId)
-        : reminder;
-
-    final result = await _reminderRepository.create(linkedReminder);
+    final result = await _reminderRepository.create(reminder);
     if (result.isSuccess) {
       await loadEvents();
       return true;
@@ -397,6 +406,18 @@ class CalendarViewModel extends ChangeNotifier {
         return 'Randevu';
       case ReminderType.custom:
         return 'Genel';
+    }
+  }
+
+  FrequencyType _repeatToFrequency(RepeatType repeatType) {
+    switch (repeatType) {
+      case RepeatType.weekly:
+        return FrequencyType.weekly;
+      case RepeatType.monthly:
+        return FrequencyType.monthly;
+      case RepeatType.daily:
+      case RepeatType.none:
+        return FrequencyType.daily;
     }
   }
 }

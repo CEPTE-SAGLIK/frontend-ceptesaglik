@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:health_asistants/data/model/medicine.dart';
+import 'package:health_asistants/data/model/person.dart';
+import 'package:health_asistants/data/repository/user_repository.dart';
 import 'package:health_asistants/presentation/medicine/viewmodel/medicine_list_viewmodel.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/presentation/components/dialogs/confirm_dialog.dart';
@@ -173,12 +175,203 @@ class _MedicineListScreenState extends State<MedicineListScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => _MedicineDetailSheet(medicine: medicine),
+      builder: (ctx) => _MedicineDetailSheet(
+        medicine: medicine,
+        onEdit: () {
+          Navigator.pop(ctx);
+          _showEditMedicineSheet(context, medicine);
+        },
+      ),
     );
   }
 
-  void _showAddMedicineSheet(BuildContext context) {
+  void _showEditMedicineSheet(BuildContext context, Medicine medicine) {
     final viewModel = context.read<MedicineListViewModel>();
+    final nameController = TextEditingController(text: medicine.name);
+    final notesController = TextEditingController(text: medicine.notes ?? '');
+    FrequencyType selectedFrequency = medicine.frequencyType;
+    TimeOfDay? selectedTime = medicine.reminderTimes.isNotEmpty
+        ? TimeOfDay.fromDateTime(medicine.reminderTimes.first)
+        : null;
+    bool isSaving = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            left: 24, right: 24, top: 24,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('İlaç Düzenle',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text('İlaç Adı *', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: nameController,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('Kullanım Sıklığı', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(12)),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<FrequencyType>(
+                      value: selectedFrequency,
+                      isExpanded: true,
+                      items: FrequencyType.values
+                          .map((f) => DropdownMenuItem(value: f, child: Text(f.label)))
+                          .toList(),
+                      onChanged: (v) => setModalState(() => selectedFrequency = v!),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('Hatırlatıcı Saati', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () async {
+                    final time = await showTimePicker(
+                      context: ctx,
+                      initialTime: selectedTime ?? TimeOfDay.now(),
+                    );
+                    if (time != null) setModalState(() => selectedTime = time);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.access_time, color: AppColors.primaryBlue),
+                        const SizedBox(width: 12),
+                        Text(
+                          selectedTime != null
+                              ? '${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}'
+                              : 'Saat seçin',
+                          style: TextStyle(
+                              color: selectedTime != null ? Colors.black87 : Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('Notlar (Opsiyonel)', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: notesController,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryBlue,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30)),
+                    ),
+                    onPressed: isSaving
+                        ? null
+                        : () async {
+                            if (nameController.text.trim().isEmpty) return;
+                            setModalState(() => isSaving = true);
+                            final now = DateTime.now();
+                            final reminderTime = selectedTime != null
+                                ? DateTime(now.year, now.month, now.day,
+                                    selectedTime!.hour, selectedTime!.minute)
+                                : null;
+                            final updated = medicine.copyWith(
+                              name: nameController.text.trim(),
+                              frequencyType: selectedFrequency,
+                              notes: notesController.text.trim().isEmpty
+                                  ? null
+                                  : notesController.text.trim(),
+                              reminderTimes: reminderTime != null ? [reminderTime] : [],
+                            );
+                            final success = await viewModel.updateMedicine(updated);
+                            if (!ctx.mounted) return;
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text(success ? 'İlaç güncellendi' : viewModel.errorMessage ?? 'Güncellenemedi'),
+                              backgroundColor: success ? Colors.green : Colors.red,
+                            ));
+                          },
+                    child: isSaving
+                        ? const SizedBox(
+                            height: 20, width: 20,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text('Güncelle',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showAddMedicineSheet(BuildContext context) async {
+    final viewModel = context.read<MedicineListViewModel>();
+    final userRepository = context.read<UserRepository>();
+
+    final selfResult = await userRepository.getCurrentPerson();
+    final familyResult = await userRepository.getFamilyMembers();
+    final childrenResult = await userRepository.getChildren();
+
+    if (!context.mounted) return;
+
+    final Person? selfPerson = selfResult.data;
+    final List<Person> persons = [
+      if (selfPerson != null) selfPerson,
+      if (familyResult.isSuccess && familyResult.data != null)
+        ...familyResult.data!,
+      if (childrenResult.isSuccess && childrenResult.data != null)
+        ...childrenResult.data!,
+    ];
+    Person? selectedPerson = selfPerson;
+
     final nameController = TextEditingController();
     final notesController = TextEditingController();
     FrequencyType selectedFrequency = FrequencyType.daily;
@@ -218,6 +411,43 @@ class _MedicineListScreenState extends State<MedicineListScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
+
+                // Kişi Seçici
+                if (persons.length > 1) ...[
+                  const Text('Kişi', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 36,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: persons.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (ctx, index) {
+                        final person = persons[index];
+                        final isSelected = selectedPerson?.id == person.id;
+                        final isSelf = person.id == selfPerson?.id;
+                        return ChoiceChip(
+                          label: Text(
+                            isSelf ? 'Ben' : person.name,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          selected: isSelected,
+                          onSelected: (_) =>
+                              setModalState(() => selectedPerson = person),
+                          selectedColor: AppColors.primaryBlue,
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : Colors.black87,
+                            fontSize: 13,
+                          ),
+                          side: isSelected
+                              ? BorderSide.none
+                              : const BorderSide(color: Colors.grey),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
                 const Text('İlaç Adı *', style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
@@ -327,9 +557,15 @@ class _MedicineListScreenState extends State<MedicineListScreen> {
                                     selectedTime!.hour, selectedTime!.minute)
                                 : null;
 
+                            final isSelf = selectedPerson == null ||
+                                selectedPerson!.id == selfPerson?.id;
+                            final medicineName = isSelf
+                                ? nameController.text.trim()
+                                : '${selectedPerson!.name} — ${nameController.text.trim()}';
+
                             final medicine = Medicine(
                               id: const Uuid().v4(),
-                              name: nameController.text.trim(),
+                              name: medicineName,
                               frequencyType: selectedFrequency,
                               timesPerDay: 1,
                               reminderTimes: reminderTime != null ? [reminderTime] : [],
@@ -344,7 +580,7 @@ class _MedicineListScreenState extends State<MedicineListScreen> {
                             Navigator.pop(ctx);
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                               content: Text(success
-                                  ? '${medicine.name} eklendi'
+                                  ? '$medicineName eklendi'
                                   : viewModel.errorMessage ?? 'Eklenemedi'),
                               backgroundColor: success ? AppColors.primaryBlue : Colors.red,
                             ));
@@ -458,8 +694,9 @@ class _MedicineCard extends StatelessWidget {
 
 class _MedicineDetailSheet extends StatelessWidget {
   final Medicine medicine;
+  final VoidCallback onEdit;
 
-  const _MedicineDetailSheet({required this.medicine});
+  const _MedicineDetailSheet({required this.medicine, required this.onEdit});
 
   bool get _isActive {
     final now = DateTime.now();
@@ -598,13 +835,7 @@ class _MedicineDetailSheet extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    // TODO: Düzenleme ekranı
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Düzenleme ekranı yakında')),
-                    );
-                  },
+                  onPressed: onEdit,
                   icon: const Icon(Icons.edit),
                   label: const Text('Düzenle'),
                 ),

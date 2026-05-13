@@ -296,17 +296,26 @@ class VaccinesViewModel extends ChangeNotifier {
   Future<bool> deleteSchedule(String scheduleId) async {
     if (_selectedChild == null) return false;
 
-    final result = await _childRepository.deleteSchedule(
-      _selectedChild!.id,
-      scheduleId,
+    // Dismissible widget hemen tree'den çıksın diye önce local state'den kaldır
+    final childId = _selectedChild!.id;
+    final updated = _selectedChild!.copyWith(
+      vaccineSchedule: _selectedChild!.vaccineSchedule
+          .where((s) => s.id != scheduleId)
+          .toList(),
     );
+    _selectedChild = updated;
+    final idx = _children.indexWhere((c) => c.id == childId);
+    if (idx != -1) _children[idx] = updated;
+    notifyListeners();
+
+    final result = await _childRepository.deleteSchedule(childId, scheduleId);
 
     if (result.isSuccess) {
       await loadChildren();
       return true;
     }
     _errorMessage = result.error;
-    notifyListeners();
+    await loadChildren();
     return false;
   }
 

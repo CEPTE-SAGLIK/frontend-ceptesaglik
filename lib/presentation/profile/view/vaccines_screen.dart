@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/shadows.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/data/model/child.dart';
 import 'package:health_asistants/data/model/vaccine.dart';
 import 'package:health_asistants/presentation/profile/viewmodel/my_vaccines_viewmodel.dart';
@@ -1052,11 +1053,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
     required MyVaccinesViewModel vm,
   }) {
     if (personId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Kişisel profil bulunamadı. Profil ekranından profilinizi oluşturun.'),
-        ),
-      );
+      SnackbarHelper.showError(context, 'Kişisel profil bulunamadı. Profil ekranından profilinizi oluşturun.');
       return;
     }
 
@@ -1141,9 +1138,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
               onPressed: () {
                 final name = nameController.text.trim();
                 if (name.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Aşı adını girin')),
-                  );
+                  SnackbarHelper.showError(context, 'Aşı adını girin');
                   return;
                 }
                 vm.addNewVaccine(
@@ -1227,9 +1222,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
             onPressed: () {
               final name = nameController.text.trim();
               if (name.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Ad Soyad girin')),
-                );
+                SnackbarHelper.showError(context, 'Ad Soyad girin');
                 return;
               }
               context.read<MyVaccinesViewModel>().addAdultPerson(name);
@@ -1369,9 +1362,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
               onPressed: () {
                 final name = nameController.text.trim();
                 if (name.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Çocuğun adını girin')),
-                  );
+                  SnackbarHelper.showError(context, 'Çocuğun adını girin');
                   return;
                 }
 
@@ -1464,9 +1455,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
                 final name = nameController.text.trim();
                 final dose = doseController.text.trim();
                 if (name.isEmpty || dose.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Aşı adı ve doz zorunludur')),
-                  );
+                  SnackbarHelper.showError(context, 'Aşı adı ve doz zorunludur');
                   return;
                 }
                 final vaccine = Vaccine(
@@ -1553,9 +1542,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
               onPressed: () {
                 final name = nameController.text.trim();
                 if (name.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Aşı adını girin')),
-                  );
+                  SnackbarHelper.showError(context, 'Aşı adını girin');
                   return;
                 }
                 final isCompleted = !selectedDate.isAfter(DateTime.now());

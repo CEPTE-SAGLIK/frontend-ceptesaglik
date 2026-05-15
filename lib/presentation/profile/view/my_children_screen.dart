@@ -2,6 +2,7 @@
 import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/core/utils/theme/text_styles.dart';
 import 'package:health_asistants/presentation/components/custom_button.dart';
 import 'package:health_asistants/presentation/profile/viewmodel/family_viewmodel.dart';
@@ -317,10 +318,7 @@ class _MyChildrenScreenState extends State<MyChildrenScreen> {
                           .then((success) {
                         if (success && context.mounted) {
                           Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Profil güncellendi.')),
-                          );
+                          SnackbarHelper.showSuccess(context, 'Profil güncellendi.');
                         }
                       });
                     },
@@ -349,15 +347,13 @@ class _MyChildrenScreenState extends State<MyChildrenScreen> {
             onPressed: () async {
               Navigator.pop(ctx);
               final vm = context.read<FamilyViewModel>();
-              final messenger = ScaffoldMessenger.of(context);
               final success = await vm.deleteChild(person.id);
-              if (mounted) {
-                messenger.showSnackBar(SnackBar(
-                  content: Text(success
-                      ? '${person.name} başarıyla silindi.'
-                      : 'Silme hatası: ${vm.errorMessage ?? 'İşlem başarısız'}'),
-                  backgroundColor: success ? Colors.green : Colors.red,
-                ));
+              if (context.mounted) {
+                if (success) {
+                  SnackbarHelper.showSuccess(context, '${person.name} başarıyla silindi.');
+                } else {
+                  SnackbarHelper.showError(context, vm.errorMessage ?? 'İşlem başarısız');
+                }
               }
             },
             child:
@@ -437,11 +433,7 @@ class _MyChildrenScreenState extends State<MyChildrenScreen> {
                       vm.addChild(name, DateTime.now()).then((success) {
                         if (success && context.mounted) {
                           Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content:
-                                    Text('Profil başarıyla oluşturuldu.')),
-                          );
+                          SnackbarHelper.showSuccess(context, 'Profil başarıyla oluşturuldu.');
                         }
                       });
                     }

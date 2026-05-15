@@ -3,8 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
 import 'package:health_asistants/core/utils/theme/text_styles.dart';
+import 'package:health_asistants/presentation/components/error_state_widget.dart';
 import 'package:health_asistants/presentation/profile/viewmodel/profile_viewmodel.dart';
-import 'package:health_asistants/core/utils/navigation/app_routes.dart'; // Navigasyon için ekledik
+import 'package:health_asistants/core/utils/navigation/app_routes.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key});
@@ -154,28 +155,9 @@ class _ProfileViewState extends State<ProfileView> {
   // ... (Diğer _build metodların aynı kalıyor, sadece _getMenuIcon'u aşağıda güncelledim)
 
   Widget _buildErrorState(ProfileViewModel viewModel) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64, color: AppColors.error),
-            SizedBox(height: AppSpacing.md),
-            Text(
-              viewModel.errorMessage ?? 'Bir hata oluştu',
-              style: AppTextStyles.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: AppSpacing.lg),
-            FilledButton.icon(
-              onPressed: viewModel.loadProfile,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Tekrar Dene'),
-            ),
-          ],
-        ),
-      ),
+    return ErrorStateWidget.fromMessage(
+      viewModel.errorMessage ?? 'Bir hata oluştu',
+      onRetry: viewModel.loadProfile,
     );
   }
 

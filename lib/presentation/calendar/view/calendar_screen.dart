@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 // Bileşenler
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/presentation/components/custom_button.dart';
 import 'package:health_asistants/presentation/components/calendar_card.dart';
 import 'package:health_asistants/presentation/components/empty_state_widget.dart';
@@ -145,10 +146,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       confirmDismiss: (_) async {
         final ok = await viewModel.deleteEvent(event.id);
         if (!ok && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(viewModel.errorMessage ?? 'Silinemedi'),
-            backgroundColor: Colors.red,
-          ));
+          SnackbarHelper.showError(context, viewModel.errorMessage ?? 'Silinemedi');
         }
         return ok;
       },
@@ -243,10 +241,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 onChanged: (_) async {
                     final ok = await viewModel.toggleEventCompletion(event.id);
                     if (!ok && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text(viewModel.errorMessage ?? 'Güncellenemedi'),
-                        backgroundColor: Colors.red,
-                      ));
+                      SnackbarHelper.showError(context, viewModel.errorMessage ?? 'Güncellenemedi');
                     }
                   },
                 activeColor: AppColors.checkboxActive,
@@ -655,11 +650,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       child: ElevatedButton(
                         onPressed: () async {
                           if (titleController.text.trim().isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("Lütfen bir başlık girin"),
-                              ),
-                            );
+                            SnackbarHelper.showError(context, 'Lütfen bir başlık girin');
                             return;
                           }
 
@@ -692,18 +683,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           if (!context.mounted) return;
                           Navigator.pop(context);
 
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                success
-                                    ? "$title eklendi"
-                                    : viewModel.errorMessage ?? "Etkinlik eklenemedi",
-                              ),
-                              backgroundColor: success
-                                  ? AppColors.primaryBlue
-                                  : Colors.red,
-                            ),
-                          );
+                          if (success) {
+                            SnackbarHelper.showSuccess(context, '$title eklendi');
+                          } else {
+                            SnackbarHelper.showError(context, viewModel.errorMessage ?? 'Etkinlik eklenemedi');
+                          }
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primaryBlue,

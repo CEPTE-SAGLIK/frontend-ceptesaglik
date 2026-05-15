@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/data/model/illness.dart';
 import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/presentation/illness/viewmodel/illness_viewmodel.dart';
@@ -62,12 +63,7 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
                   await context.read<IllnessViewModel>().deleteIllness(id);
               if (success && context.mounted) {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Kayıt başarıyla silindi'),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
+                SnackbarHelper.showSuccess(context, 'Kayıt başarıyla silindi');
               }
             },
             child: const Text('Sil', style: TextStyle(color: Colors.white)),
@@ -149,12 +145,7 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
                     );
                 if (success && context.mounted) {
                   Navigator.pop(dialogContext);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Hastalık güncellendi'),
-                      backgroundColor: Colors.teal,
-                    ),
-                  );
+                  SnackbarHelper.showSuccess(context, 'Hastalık güncellendi');
                 }
               },
               child: const Text('Güncelle',

@@ -2,9 +2,11 @@
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/data/model/medicine.dart';
 import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/data/repository/user_repository.dart';
+import 'package:health_asistants/presentation/components/error_state_widget.dart';
 import 'package:health_asistants/presentation/medicine/viewmodel/medicine_list_viewmodel.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/presentation/components/dialogs/confirm_dialog.dart';
@@ -76,24 +78,9 @@ class _MedicineListScreenState extends State<MedicineListScreen> {
                 }
 
                 if (viewModel.status == MedicineListStatus.error) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          size: 48,
-                          color: Colors.red,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(viewModel.errorMessage ?? 'Bir hata oluştu'),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: viewModel.loadMedicines,
-                          child: const Text('Tekrar Dene'),
-                        ),
-                      ],
-                    ),
+                  return ErrorStateWidget.fromMessage(
+                    viewModel.errorMessage ?? 'Bir hata oluştu',
+                    onRetry: viewModel.loadMedicines,
                   );
                 }
 
@@ -331,10 +318,12 @@ class _MedicineListScreenState extends State<MedicineListScreen> {
                             final success = await viewModel.updateMedicine(updated);
                             if (!ctx.mounted) return;
                             Navigator.pop(ctx);
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: Text(success ? 'İlaç güncellendi' : viewModel.errorMessage ?? 'Güncellenemedi'),
-                              backgroundColor: success ? Colors.green : Colors.red,
-                            ));
+                            if (!context.mounted) return;
+                            if (success) {
+                              SnackbarHelper.showSuccess(context, 'İlaç güncellendi');
+                            } else {
+                              SnackbarHelper.showError(context, viewModel.errorMessage ?? 'Güncellenemedi');
+                            }
                           },
                     child: isSaving
                         ? const SizedBox(
@@ -544,9 +533,7 @@ class _MedicineListScreenState extends State<MedicineListScreen> {
                         ? null
                         : () async {
                             if (nameController.text.trim().isEmpty) {
-                              ScaffoldMessenger.of(ctx).showSnackBar(
-                                const SnackBar(content: Text('Lütfen ilaç adını girin')),
-                              );
+                              SnackbarHelper.showError(ctx, 'Lütfen ilaç adını girin');
                               return;
                             }
                             setModalState(() => isSaving = true);
@@ -578,12 +565,12 @@ class _MedicineListScreenState extends State<MedicineListScreen> {
                             final success = await viewModel.addMedicine(medicine);
                             if (!ctx.mounted) return;
                             Navigator.pop(ctx);
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: Text(success
-                                  ? '$medicineName eklendi'
-                                  : viewModel.errorMessage ?? 'Eklenemedi'),
-                              backgroundColor: success ? AppColors.primaryBlue : Colors.red,
-                            ));
+                            if (!context.mounted) return;
+                            if (success) {
+                              SnackbarHelper.showSuccess(context, '$medicineName eklendi');
+                            } else {
+                              SnackbarHelper.showError(context, viewModel.errorMessage ?? 'Eklenemedi');
+                            }
                           },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryBlue,

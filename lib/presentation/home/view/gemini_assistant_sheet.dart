@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/presentation/home/viewmodel/gemini_viewmodel.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
@@ -47,12 +48,7 @@ class _GeminiAssistantSheetState extends State<GeminiAssistantSheet> {
         );
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Mikrofon izni verilmedi veya cihaz desteklemiyor!"),
-              backgroundColor: Colors.red,
-            ),
-          );
+          SnackbarHelper.showError(context, 'Mikrofon izni verilmedi veya cihaz desteklemiyor!');
         }
       }
     } else {

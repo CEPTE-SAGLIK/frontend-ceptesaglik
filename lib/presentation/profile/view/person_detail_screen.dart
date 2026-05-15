@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/theme/text_styles.dart';
@@ -382,22 +383,14 @@ class _PhysicalInfoFormState extends State<_PhysicalInfoForm> {
                                       selectedGender);
                               if (mounted) {
                                 Navigator.pop(context);
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(SnackBar(
-                                  content: Text(success
-                                      ? 'Bilgiler güncellendi'
-                                      : 'Hata: ${vm.errorMessage ?? 'Güncellenemedi'}'),
-                                  backgroundColor: success
-                                      ? Colors.green
-                                      : Colors.red,
-                                ));
+                                if (success) {
+                                  SnackbarHelper.showSuccess(context, 'Bilgiler güncellendi');
+                                } else {
+                                  SnackbarHelper.showError(context, vm.errorMessage ?? 'Güncellenemedi');
+                                }
                               }
                             } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text(
-                                        'Lütfen geçerli değerler girin')),
-                              );
+                              SnackbarHelper.showError(context, 'Lütfen geçerli değerler girin');
                             }
                           },
                     child: Text(vm.status == FamilyStatus.saving

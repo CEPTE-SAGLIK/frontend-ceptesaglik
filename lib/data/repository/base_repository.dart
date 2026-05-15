@@ -1,20 +1,17 @@
+import 'package:health_asistants/core/error/app_error.dart';
 import 'package:health_asistants/core/network/api_client.dart';
 
-/// Temel repository sınıfı
-/// Tüm repository'ler bu sınıftan türetilir
 abstract class BaseRepository {
   final ApiClient apiClient;
 
   BaseRepository({ApiClient? apiClient}) : apiClient = apiClient ?? ApiClient();
 
-  /// Hata mesajını formatla
   String formatError(dynamic error) {
     if (error is String) return error;
     return error.toString();
   }
 }
 
-/// Repository sonuç wrapper'ı
 class Result<T> {
   final T? data;
   final String? error;
@@ -30,14 +27,15 @@ class Result<T> {
     return Result._(error: error, isSuccess: false);
   }
 
-  /// Başarılı ise veriyi döndür, değilse hata fırlat
+  AppError? get appError =>
+      error != null ? AppError.fromString(error!) : null;
+
   T get dataOrThrow {
     final d = data;
     if (isSuccess && d != null) return d as T;
     throw Exception(error ?? 'Bilinmeyen hata');
   }
 
-  /// Map fonksiyonu
   Result<R> map<R>(R Function(T) mapper) {
     final d = data;
     if (isSuccess && d != null) {

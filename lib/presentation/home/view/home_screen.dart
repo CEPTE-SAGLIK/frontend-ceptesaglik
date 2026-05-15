@@ -8,7 +8,10 @@ import 'package:health_asistants/core/utils/navigation/app_routes.dart';
 import 'package:health_asistants/core/utils/theme/text_styles.dart';
 // Modeller ve ViewModel
 import 'package:health_asistants/data/model/reminder.dart';
+import 'package:health_asistants/core/error/app_error.dart';
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/presentation/components/empty_state_widget.dart';
+import 'package:health_asistants/presentation/components/error_state_widget.dart';
 import 'package:health_asistants/presentation/home/viewmodel/home_viewmodel.dart';
 import 'package:health_asistants/presentation/home/view/gemini_assistant_sheet.dart';
 import 'package:health_asistants/presentation/navigator/viewmodel/navigator_viewmodel.dart';
@@ -185,14 +188,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         repeatType: selectedRepeat,
                       );
                       final success = await viewModel.updateReminder(updated);
-                      if (success && ctx.mounted) {
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Hatırlatma güncellendi'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (success && context.mounted) {
+                        SnackbarHelper.showSuccess(context, 'Hatırlatma güncellendi');
                       }
                     },
                     child: const Text('Güncelle',
@@ -461,25 +459,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   onDelete: () async {
                     final ok = await viewModel.deleteReminder(reminder.id);
                     if (!context.mounted) return false;
-                    ScaffoldMessenger.of(context).clearSnackBars();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      ok
-                          ? SnackBar(
-                              content: Text("${reminder.title} silindi"),
-                              action: SnackBarAction(
-                                label: 'Geri Al',
-                                textColor: AppColors.primaryBlue,
-                                onPressed: () {
-                                  viewModel.restoreReminder(reminder);
-                                },
-                              ),
-                              duration: const Duration(seconds: 4),
-                            )
-                          : const SnackBar(
-                              content: Text('Silinemedi, tekrar deneyin'),
-                              backgroundColor: Colors.red,
-                            ),
-                    );
+                    if (ok) {
+                      ScaffoldMessenger.of(context).clearSnackBars();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text("${reminder.title} silindi"),
+                          action: SnackBarAction(
+                            label: 'Geri Al',
+                            textColor: AppColors.primaryBlue,
+                            onPressed: () => viewModel.restoreReminder(reminder),
+                          ),
+                          duration: const Duration(seconds: 4),
+                        ),
+                      );
+                    } else {
+                      SnackbarHelper.showError(context, 'Silinemedi, tekrar deneyin');
+                    }
                     return ok;
                   },
                 ),
@@ -525,24 +520,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 onDelete: () async {
                   final ok = await viewModel.deleteReminder(appointment.id);
                   if (!context.mounted) return false;
-                  ScaffoldMessenger.of(context).clearSnackBars();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    ok
-                        ? SnackBar(
-                            content: Text("${appointment.title} silindi"),
-                            action: SnackBarAction(
-                              label: 'Geri Al',
-                              textColor: AppColors.primaryBlue,
-                              onPressed: () {
-                                viewModel.restoreReminder(appointment);
-                              },
-                            ),
-                          )
-                        : const SnackBar(
-                            content: Text('Silinemedi, tekrar deneyin'),
-                            backgroundColor: Colors.red,
-                          ),
-                  );
+                  if (ok) {
+                    ScaffoldMessenger.of(context).clearSnackBars();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text("${appointment.title} silindi"),
+                        action: SnackBarAction(
+                          label: 'Geri Al',
+                          textColor: AppColors.primaryBlue,
+                          onPressed: () => viewModel.restoreReminder(appointment),
+                        ),
+                      ),
+                    );
+                  } else {
+                    SnackbarHelper.showError(context, 'Silinemedi, tekrar deneyin');
+                  }
                   return ok;
                 },
               ),
@@ -552,25 +544,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildErrorState(HomeViewModel viewModel) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 64, color: AppColors.error),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            viewModel.errorMessage ?? 'Bir hata oluştu',
-            style: AppTextStyles.bodyMedium,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          FilledButton.icon(
-            onPressed: viewModel.refreshData,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Tekrar Dene'),
-          ),
-        ],
-      ),
+    final appError = viewModel.errorMessage.asAppError ??
+        AppError.unknown('Bir hata oluştu');
+    return ErrorStateWidget(
+      error: appError,
+      onRetry: viewModel.refreshData,
     );
   }
 

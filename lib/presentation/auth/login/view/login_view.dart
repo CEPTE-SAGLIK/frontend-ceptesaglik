@@ -4,6 +4,7 @@ import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/images.dart';
 import 'package:health_asistants/core/utils/navigation/app_routes.dart';
 import 'package:health_asistants/presentation/auth/login/viewmodel/login_viewmodel.dart';
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/presentation/components/custom_button.dart';
 import 'package:health_asistants/presentation/components/custom_input.dart';
 
@@ -202,16 +203,17 @@ class LoginView extends StatelessWidget {
               );
               if (context.mounted) {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      success
-                          ? 'Şifre sıfırlama bağlantısı gönderildi'
-                          : (viewModel.errorMessage ?? 'Bir hata oluştu'),
-                    ),
-                    backgroundColor: success ? Colors.green : Colors.red,
-                  ),
-                );
+                if (success) {
+                  SnackbarHelper.showSuccess(
+                    context,
+                    'Şifre sıfırlama bağlantısı gönderildi',
+                  );
+                } else {
+                  SnackbarHelper.showError(
+                    context,
+                    viewModel.errorMessage ?? 'Bir hata oluştu',
+                  );
+                }
               }
             },
             child: const Text('Gönder'),

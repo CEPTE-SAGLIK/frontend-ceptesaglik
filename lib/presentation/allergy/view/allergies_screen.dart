@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/data/model/allergy.dart';
 import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/presentation/allergy/viewmodel/allergy_viewmodel.dart';
@@ -112,10 +113,7 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
                       ),
                       onPressed: () async {
                         if (nameController.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            const SnackBar(
-                                content: Text('Lütfen alerji adını girin')),
-                          );
+                          SnackbarHelper.showError(ctx, 'Lütfen alerji adını girin');
                           return;
                         }
                         final success = await context
@@ -127,12 +125,9 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
                             );
                         if (success && ctx.mounted) {
                           Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Alerji güncellendi'),
-                              backgroundColor: Colors.teal,
-                            ),
-                          );
+                          if (context.mounted) {
+                            SnackbarHelper.showSuccess(context, 'Alerji güncellendi');
+                          }
                         }
                       },
                       child: const Text(
@@ -172,12 +167,7 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
                   await context.read<AllergyViewModel>().deleteAllergy(id);
               if (success && context.mounted) {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Alerji silindi'),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
+                SnackbarHelper.showSuccess(context, 'Alerji silindi');
               }
             },
             child: const Text('Sil', style: TextStyle(color: Colors.white)),
@@ -330,11 +320,7 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
                       ),
                       onPressed: () async {
                         if (nameController.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            const SnackBar(
-                                content:
-                                    Text('Lütfen alerji adını girin')),
-                          );
+                          SnackbarHelper.showError(ctx, 'Lütfen alerji adını girin');
                           return;
                         }
                         final success = await context

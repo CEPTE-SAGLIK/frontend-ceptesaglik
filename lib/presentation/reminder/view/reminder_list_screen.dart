@@ -1,7 +1,9 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/data/model/reminder.dart';
+import 'package:health_asistants/presentation/components/error_state_widget.dart';
 import 'package:health_asistants/presentation/reminder/viewmodel/reminder_list_viewmodel.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/presentation/components/dialogs/confirm_dialog.dart';
@@ -82,20 +84,9 @@ class _ReminderListScreenState extends State<ReminderListScreen>
           }
 
           if (viewModel.status == ReminderListStatus.error) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text(viewModel.errorMessage ?? 'Bir hata oluştu'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: viewModel.loadReminders,
-                    child: const Text('Tekrar Dene'),
-                  ),
-                ],
-              ),
+            return ErrorStateWidget.fromMessage(
+              viewModel.errorMessage ?? 'Bir hata oluştu',
+              onRetry: viewModel.loadReminders,
             );
           }
 
@@ -175,9 +166,7 @@ class _ReminderListScreenState extends State<ReminderListScreen>
   }
 
   void _showAddReminderSheet(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Hatırlatma ekleme ekranı yakında')),
-    );
+    SnackbarHelper.showInfo(context, 'Hatırlatma ekleme ekranı yakında');
   }
 
   void _showEditReminderSheet(
@@ -341,13 +330,13 @@ class _ReminderListScreenState extends State<ReminderListScreen>
                       );
                       final success =
                           await viewModel.updateReminder(updated);
-                      if (success && ctx.mounted) {
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Hatırlatma güncellendi'),
-                            backgroundColor: Colors.green,
-                          ),
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (success && context.mounted) {
+                        SnackbarHelper.showSuccess(context, 'Hatırlatma güncellendi');
+                      } else if (!success && context.mounted) {
+                        SnackbarHelper.showError(
+                          context,
+                          viewModel.errorMessage ?? 'Güncellenemedi',
                         );
                       }
                     },

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/core/utils/theme/text_styles.dart';
 import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/presentation/components/custom_button.dart';
@@ -241,12 +242,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
   void _handleSave(BuildContext context, AddMedicineViewModel viewModel) async {
     final medicine = await viewModel.saveMedicine();
     if (medicine != null && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${medicine.name} başarıyla kaydedildi'),
-          backgroundColor: AppColors.statusSuccess,
-        ),
-      );
+      SnackbarHelper.showSuccess(context, '${medicine.name} başarıyla kaydedildi');
       Navigator.pop(context, medicine);
     }
   }

@@ -2,6 +2,7 @@
 import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/core/utils/theme/text_styles.dart';
 import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/presentation/components/custom_button.dart';
@@ -48,12 +49,7 @@ class _AddReminderContentState extends State<_AddReminderContent> {
     if (reminder != null) {
       Navigator.pop(context, reminder);
     } else if (viewModel.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(viewModel.errorMessage!),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
+      SnackbarHelper.showError(context, viewModel.errorMessage!);
     }
   }
 
@@ -109,13 +105,9 @@ class _AddReminderContentState extends State<_AddReminderContent> {
                         ),
                         onFrequencyChanged: (newFreq) {
                           if (newFreq == Frequency.other) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Özel sıklık seçeneği yakında eklenecek.',
-                                ),
-                                duration: Duration(seconds: 2),
-                              ),
+                            SnackbarHelper.showInfo(
+                              context,
+                              'Özel sıklık seçeneği yakında eklenecek.',
                             );
                           }
                           viewModel.setRepeatTypeFromFrequency(newFreq.label);

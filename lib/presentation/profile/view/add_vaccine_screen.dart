@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/presentation/profile/viewmodel/my_vaccines_viewmodel.dart';
 
 class AddVaccineScreen extends StatefulWidget {
@@ -158,16 +159,9 @@ class _AddVaccineScreenState extends State<AddVaccineScreen> {
                             if (!context.mounted) return;
                             if (success) {
                               Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Aşı başarıyla eklendi!')),
-                              );
+                              SnackbarHelper.showSuccess(context, 'Aşı başarıyla eklendi!');
                             } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text(
-                                        'Aşı eklenirken bir hata oluştu.')),
-                              );
+                              SnackbarHelper.showError(context, 'Aşı eklenirken bir hata oluştu.');
                             }
                           }
                         },

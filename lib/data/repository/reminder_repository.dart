@@ -49,10 +49,13 @@ class ReminderRepository extends BaseRepository {
         'ReminderDate': reminder.dateTime.toIso8601String(),
         'Type': _typeToInt(reminder.type),
         'RepeatType': _repeatToInt(reminder.repeatType),
+        'AudienceGroup': _audienceToInt(reminder.audienceGroup),
+        'AudienceBirthDate': reminder.audienceBirthDate?.toIso8601String(),
         'IsActive': reminder.isActive,
         'RelatedItemId': reminder.relatedItemId,
         'MedicineId': reminder.type == ReminderType.medicine ? reminder.relatedItemId : null,
         'VaccineId': reminder.type == ReminderType.vaccine ? reminder.relatedItemId : null,
+        if (reminder.targetPersonId != null) 'TargetPersonId': reminder.targetPersonId,
       };
       final response = await apiClient.post<Map<String, dynamic>>(
         ApiEndpoints.reminders,
@@ -78,6 +81,8 @@ class ReminderRepository extends BaseRepository {
         'ReminderDate': reminder.dateTime.toIso8601String(),
         'Type': _typeToInt(reminder.type),
         'RepeatType': _repeatToInt(reminder.repeatType),
+        'AudienceGroup': _audienceToInt(reminder.audienceGroup),
+        'AudienceBirthDate': reminder.audienceBirthDate?.toIso8601String(),
         'IsActive': reminder.isActive,
         'RelatedItemId': reminder.relatedItemId,
       };
@@ -120,6 +125,8 @@ class ReminderRepository extends BaseRepository {
       type: reminder.type,
       dateTime: reminder.dateTime,
       repeatType: reminder.repeatType,
+      audienceGroup: reminder.audienceGroup,
+      audienceBirthDate: reminder.audienceBirthDate,
       isActive: !reminder.isActive,
       relatedItemId: reminder.relatedItemId,
       createdAt: reminder.createdAt,
@@ -150,6 +157,17 @@ class ReminderRepository extends BaseRepository {
         return 2;
       case RepeatType.monthly:
         return 3;
+    }
+  }
+
+  int _audienceToInt(AudienceGroup group) {
+    switch (group) {
+      case AudienceGroup.adult:
+        return 0;
+      case AudienceGroup.elderly:
+        return 1;
+      case AudienceGroup.child:
+        return 2;
     }
   }
 }

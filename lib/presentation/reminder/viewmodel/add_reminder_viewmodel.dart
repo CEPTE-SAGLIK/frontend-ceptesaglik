@@ -7,6 +7,7 @@ import 'package:health_asistants/data/repository/medicine_repository.dart';
 import 'package:health_asistants/data/repository/reminder_repository.dart';
 import 'package:health_asistants/data/repository/user_repository.dart';
 import 'package:health_asistants/data/repository/vaccine_repository.dart';
+import 'package:health_asistants/core/utils/audience_helper.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 
 /// Hatırlatma ekleme durumu
@@ -53,6 +54,7 @@ class AddReminderViewModel extends ChangeNotifier {
   TimeOfDay? _selectedTime;
   DateTime _selectedDate = DateTime.now();
   RepeatType _repeatType = RepeatType.none;
+  AudienceGroup _audienceGroup = AudienceGroup.adult;
   String? _selectedFrequencyLabel;
   int _selectedTypeIndex = 0;
   String? _personId;
@@ -110,6 +112,7 @@ class AddReminderViewModel extends ChangeNotifier {
   TimeOfDay? get selectedTime => _selectedTime;
   DateTime get selectedDate => _selectedDate;
   RepeatType get repeatType => _repeatType;
+  AudienceGroup get audienceGroup => _audienceGroup;
   String? get selectedFrequencyLabel => _selectedFrequencyLabel;
   int get selectedTypeIndex => _selectedTypeIndex;
   ReminderTypeItem get selectedReminderType =>
@@ -118,6 +121,10 @@ class AddReminderViewModel extends ChangeNotifier {
   List<Person> get persons => _persons;
   Person? get selectedPerson => _selectedPerson;
   Person? get selfPerson => _selfPerson;
+
+  /// Seçili yaş grubuna uyan kişiler (kişi seçici bunları gösterir)
+  List<Person> get filteredPersons =>
+      _persons.where((p) => audienceForPerson(p) == _audienceGroup).toList();
 
   /// Form geçerli mi
   bool get isFormValid => _title.isNotEmpty && _selectedTime != null;
@@ -169,6 +176,18 @@ class AddReminderViewModel extends ChangeNotifier {
       _repeatType = type;
       notifyListeners();
     }
+  }
+
+  /// Yaş grubunu değiştirir; seçili kişi yeni gruba uymuyorsa uygun kişiye geçer.
+  void setAudienceGroup(AudienceGroup group) {
+    if (_audienceGroup == group) return;
+    _audienceGroup = group;
+    if (_selectedPerson != null &&
+        audienceForPerson(_selectedPerson!) != group) {
+      final matches = filteredPersons;
+      _selectedPerson = matches.isNotEmpty ? matches.first : null;
+    }
+    notifyListeners();
   }
 
   void setRepeatTypeFromFrequency(String? frequency) {
@@ -241,27 +260,28 @@ class AddReminderViewModel extends ChangeNotifier {
         _persons.addAll(childrenResult.data!);
       }
       _selectedPerson = _selfPerson;
+      // Varsayılan yaş grubu: giriş yapan kullanıcının kendi yaşı
+      if (_selfPerson != null) {
+        _audienceGroup = audienceForPerson(_selfPerson!);
+      }
       notifyListeners();
     } catch (_) {
       notifyListeners();
     }
   }
 
-  Future<Person?> addPerson(String name) async {
+  /// [draft] AddPersonSheet'ten gelen kişi (id/userId boş, doğum tarihi dolu).
+  Future<Person?> addPerson(Person draft) async {
     if (_userRepository == null) return null;
-    final parts = name.trim().split(' ');
-    final person = Person(
-      id: '', userId: '', name: parts.first,
-      surname: parts.length > 1 ? parts.skip(1).join(' ') : '',
-      birthDate: DateTime(1990, 1, 1), gender: Gender.male,
-    );
-    final result = await _userRepository.addFamilyMember(person);
+    final result = await _userRepository.addFamilyMember(draft);
     if (result.isSuccess && result.data != null) {
       await loadPersons();
       final found = _persons.firstWhere(
         (p) => p.id == result.data!.id,
         orElse: () => result.data!,
       );
+      // Yeni kişinin yaş grubuna geç ki seçilebilir/görünür olsun
+      _audienceGroup = audienceForPerson(found);
       _selectedPerson = found;
       notifyListeners();
       return found;
@@ -318,6 +338,10 @@ class AddReminderViewModel extends ChangeNotifier {
         finalTitle = _title;
       }
 
+      // Yaş grubu kayda doğum tarihi olarak yazılır; grup her okumada yeniden hesaplanır
+      final DateTime? targetBirthDate =
+          (_selectedPerson ?? _selfPerson)?.birthDate;
+
       // İlaç türü: Medicine kaydı oluştur; backend otomatik Reminder ekler
       if (selectedReminderType.type == ReminderType.medicine &&
           _medicineRepository != null) {
@@ -332,6 +356,8 @@ class AddReminderViewModel extends ChangeNotifier {
           startDate: DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day),
           notes: _description,
           personId: targetPersonId,
+          audienceGroup: _audienceGroup,
+          audienceBirthDate: targetBirthDate,
         );
         final medResult = await _medicineRepository.create(medicine);
         if (!medResult.isSuccess) {
@@ -350,6 +376,8 @@ class AddReminderViewModel extends ChangeNotifier {
           type: selectedReminderType.type,
           dateTime: reminderDateTime,
           repeatType: _repeatType,
+          audienceGroup: _audienceGroup,
+          audienceBirthDate: targetBirthDate,
           isActive: true,
           createdAt: now,
         );
@@ -363,8 +391,11 @@ class AddReminderViewModel extends ChangeNotifier {
         type: selectedReminderType.type,
         dateTime: reminderDateTime,
         repeatType: _repeatType,
+        audienceGroup: _audienceGroup,
+        audienceBirthDate: targetBirthDate,
         isActive: true,
         createdAt: now,
+        targetPersonId: isSelf ? null : _selectedPerson?.id,
       );
 
       // Aşı türü seçildiyse Vaccine tablosuna da kaydet
@@ -395,6 +426,8 @@ class AddReminderViewModel extends ChangeNotifier {
                 type: selectedReminderType.type,
                 dateTime: reminderDateTime,
                 repeatType: _repeatType,
+                audienceGroup: _audienceGroup,
+                audienceBirthDate: targetBirthDate,
                 isActive: true,
                 createdAt: now,
               );
@@ -438,13 +471,14 @@ class AddReminderViewModel extends ChangeNotifier {
 
   FrequencyType _toFrequencyType() {
     switch (_repeatType) {
+      case RepeatType.none:
+        return FrequencyType.none;
+      case RepeatType.daily:
+        return FrequencyType.daily;
       case RepeatType.weekly:
         return FrequencyType.weekly;
       case RepeatType.monthly:
         return FrequencyType.monthly;
-      case RepeatType.daily:
-      case RepeatType.none:
-        return FrequencyType.daily;
     }
   }
 
@@ -471,6 +505,9 @@ class AddReminderViewModel extends ChangeNotifier {
     _selectedTypeIndex = 0;
     _personId = null;
     _selectedPerson = _selfPerson;
+    _audienceGroup = _selfPerson != null
+        ? audienceForPerson(_selfPerson!)
+        : AudienceGroup.adult;
     notifyListeners();
   }
 }

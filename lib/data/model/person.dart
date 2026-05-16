@@ -42,6 +42,10 @@ class Person {
   final List<Vaccine> vaccines;
   final bool isChild;
 
+  /// Hesap sahibinin kendi profili mi? (onboarding profili = true,
+  /// uygulamadan eklenen aile üyeleri = false)
+  final bool isAccountOwner;
+
   Person({
     required this.id,
     required this.userId,
@@ -58,6 +62,7 @@ class Person {
     this.medicines = const [],
     this.vaccines = const [],
     this.isChild = false,
+    this.isAccountOwner = false,
   });
 
   factory Person.fromJson(Map<String, dynamic> json) {
@@ -125,6 +130,9 @@ class Person {
               .whereType<Vaccine>()
               .toList() ??
           [],
+      isAccountOwner: json['isAccountOwner'] as bool? ??
+          json['IsAccountOwner'] as bool? ??
+          false,
     );
   }
 
@@ -140,6 +148,7 @@ class Person {
       'weight': weight,
       if (relationship != null) 'relationship': relationship,
       if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
+      'isAccountOwner': isAccountOwner,
       'illnesses': illnesses.map((e) => e.toJson()).toList(),
       'allergies': allergies.map((e) => e.toJson()).toList(),
       'medicines': medicines.map((e) => e.toJson()).toList(),

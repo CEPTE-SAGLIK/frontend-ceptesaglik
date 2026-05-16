@@ -96,6 +96,11 @@ class ProfileViewModel extends ChangeNotifier {
   /// Sağlık ayarları menü öğeleri
   List<ProfileMenuItem> get healthSettingsMenuItems => const [
     ProfileMenuItem(
+      title: "Yakınlarım",
+      icon: Icons.group_rounded,
+      route: "/family-members",
+    ),
+    ProfileMenuItem(
       title: "Hatırlatmalarım",
       icon: Icons.notifications_rounded,
       route: "/reminders",

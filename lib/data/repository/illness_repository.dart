@@ -21,7 +21,10 @@ class IllnessRepository extends BaseRepository {
     final self = selfResult.data!;
     final familyResult = await _userRepository.getFamilyMembers();
     final family = (familyResult.isSuccess ? familyResult.data : null) ?? [];
-    return Result.success((self: self, all: [self, ...family]));
+    final childrenResult = await _userRepository.getChildren();
+    final children =
+        (childrenResult.isSuccess ? childrenResult.data : null) ?? [];
+    return Result.success((self: self, all: [self, ...family, ...children]));
   }
 
   Future<Result<List<Illness>>> getIllnessesByPerson(String personId) async {

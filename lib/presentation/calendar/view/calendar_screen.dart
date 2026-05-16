@@ -14,6 +14,10 @@ import 'package:health_asistants/presentation/calendar/viewmodel/calendar_viewmo
 import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/data/model/reminder.dart';
 
+// Yardımcılar / Bileşenler
+import 'package:health_asistants/core/utils/audience_helper.dart';
+import 'package:health_asistants/presentation/components/add_person_sheet.dart';
+
 // Renkler ve Sabitler
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
@@ -288,6 +292,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
+  String _audienceLabel(AudienceGroup g) {
+    switch (g) {
+      case AudienceGroup.adult:
+        return 'Yetişkin';
+      case AudienceGroup.elderly:
+        return 'Yaşlı';
+      case AudienceGroup.child:
+        return 'Çocuk';
+    }
+  }
+
   String _getRepeatLabel(RepeatType type) {
     switch (type) {
       case RepeatType.daily:
@@ -311,6 +326,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     int selectedTypeIndex = 0;
     RepeatType selectedRepeatType = RepeatType.none;
     Person? selectedPerson = viewModel.selfPerson;
+    AudienceGroup selectedAudience = viewModel.selfPerson != null
+        ? audienceForPerson(viewModel.selfPerson!)
+        : AudienceGroup.adult;
 
     showModalBottomSheet(
       context: context,
@@ -321,6 +339,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            final filteredPersons = viewModel.persons
+                .where((p) => audienceForPerson(p) == selectedAudience)
+                .toList();
             return Padding(
               padding: EdgeInsets.only(
                 left: 24,
@@ -424,6 +445,52 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
                     const SizedBox(height: 24),
 
+                    // Yaş Grubu Seçimi
+                    Text(
+                      "Yaş Grubu",
+                      style: AppTextStyles.labelLarge.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        for (final g in AudienceGroup.values) ...[
+                          if (g != AudienceGroup.values.first)
+                            const SizedBox(width: 8),
+                          Expanded(
+                            child: ChoiceChip(
+                              label: Text(
+                                _audienceLabel(g),
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              selected: selectedAudience == g,
+                              onSelected: (_) => setModalState(() {
+                                selectedAudience = g;
+                                if (selectedPerson != null &&
+                                    audienceForPerson(selectedPerson!) != g) {
+                                  final m = viewModel.persons
+                                      .where(
+                                          (p) => audienceForPerson(p) == g)
+                                      .toList();
+                                  selectedPerson =
+                                      m.isNotEmpty ? m.first : null;
+                                }
+                              }),
+                              selectedColor: AppColors.primaryBlue,
+                              labelStyle: TextStyle(
+                                color: selectedAudience == g
+                                    ? Colors.white
+                                    : AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+
                     // Başlık Input
                     Text(
                       "Başlık",
@@ -445,8 +512,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       ),
                     ),
 
-                    // Kişi Seçimi (birden fazla kişi varsa)
-                    if (viewModel.persons.length > 1) ...[
+                    // Kişi Seçimi (seçili yaş grubundaki kişiler)
+                    ...[
                       const SizedBox(height: 16),
                       Text(
                         "Kişi",
@@ -455,48 +522,38 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
+                      if (filteredPersons.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            'Bu yaş grubunda kişi yok. "Ekle" ile yeni kişi ekleyebilirsiniz.',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
                       SizedBox(
                         height: 36,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
-                          itemCount: viewModel.persons.length + 1,
+                          itemCount: filteredPersons.length + 1,
                           separatorBuilder: (_, __) =>
                               const SizedBox(width: 8),
                           itemBuilder: (context, index) {
-                            if (index == viewModel.persons.length) {
+                            if (index == filteredPersons.length) {
                               return GestureDetector(
                                 onTap: () async {
-                                  final ctrl = TextEditingController();
-                                  final name = await showDialog<String>(
-                                    context: context,
-                                    builder: (ctx) => AlertDialog(
-                                      title: const Text('Kişi Ekle'),
-                                      content: TextField(
-                                        controller: ctrl,
-                                        decoration: const InputDecoration(
-                                            hintText: 'Ad Soyad'),
-                                        autofocus: true,
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(ctx),
-                                          child: const Text('İptal'),
-                                        ),
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(
-                                              ctx, ctrl.text.trim()),
-                                          child: const Text('Ekle'),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                  if (name != null && name.isNotEmpty) {
+                                  final draft =
+                                      await showAddPersonSheet(context);
+                                  if (draft != null) {
                                     final newPerson =
-                                        await viewModel.addPerson(name);
+                                        await viewModel.addPerson(draft);
                                     if (newPerson != null) {
-                                      setModalState(
-                                          () => selectedPerson = newPerson);
+                                      setModalState(() {
+                                        selectedAudience =
+                                            audienceForPerson(newPerson);
+                                        selectedPerson = newPerson;
+                                      });
                                     }
                                   }
                                 },
@@ -524,7 +581,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 ),
                               );
                             }
-                            final Person person = viewModel.persons[index];
+                            final Person person = filteredPersons[index];
                             final bool isSelected =
                                 selectedPerson?.id == person.id;
                             final bool isSelf =
@@ -707,6 +764,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             type: selectedType.type,
                             time: selectedTime,
                             repeatType: selectedRepeatType,
+                            audienceGroup: selectedAudience,
+                            audienceBirthDate:
+                                (selectedPerson ?? viewModel.selfPerson)
+                                    ?.birthDate,
                             personName: personName,
                             targetPersonId:
                                 isSelf ? null : selectedPerson!.id,

@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:health_asistants/data/model/allergy.dart';
 import 'package:health_asistants/data/model/person.dart';
+import 'package:health_asistants/data/model/reminder.dart' show AudienceGroup;
+import 'package:health_asistants/core/utils/audience_helper.dart';
 import 'package:health_asistants/presentation/allergy/viewmodel/allergy_viewmodel.dart';
+import 'package:health_asistants/presentation/components/audience_filter_bar.dart';
 
 class AllergiesScreen extends StatefulWidget {
   const AllergiesScreen({super.key});
@@ -61,6 +64,7 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
     final nameController = TextEditingController();
     AllergyLevel selectedLevel = AllergyLevel.mild;
     Person? selectedPerson = viewModel.selfPerson;
+    AudienceGroup? sheetGroup;
 
     showModalBottomSheet(
       context: context,
@@ -70,6 +74,12 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
+          final filteredPersons = sheetGroup == null
+              ? viewModel.persons
+              : viewModel.persons
+                  .where((p) => audienceForPerson(p) == sheetGroup)
+                  .toList();
+
           return Padding(
             padding: EdgeInsets.only(
               left: 24,
@@ -98,46 +108,72 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Kişi Seçici
+                  // Kişi Seçici + Yaş grubu filtresi
                   if (viewModel.persons.length > 1) ...[
+                    AudienceFilterBar(
+                      selected: sheetGroup,
+                      onSelect: (g) => setModalState(() {
+                        sheetGroup = g;
+                        final fp = g == null
+                            ? viewModel.persons
+                            : viewModel.persons
+                                .where((p) => audienceForPerson(p) == g)
+                                .toList();
+                        if (selectedPerson == null ||
+                            !fp.any((p) => p.id == selectedPerson!.id)) {
+                          selectedPerson = fp.isNotEmpty ? fp.first : null;
+                        }
+                      }),
+                    ),
+                    const SizedBox(height: 12),
                     const Text('Kişi',
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
-                    SizedBox(
-                      height: 36,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: viewModel.persons.length,
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(width: 8),
-                        itemBuilder: (ctx, index) {
-                          final person = viewModel.persons[index];
-                          final isSelected =
-                              selectedPerson?.id == person.id;
-                          final isSelf =
-                              person.id == viewModel.selfPerson?.id;
-                          return ChoiceChip(
-                            label: Text(
-                              isSelf ? 'Ben' : person.name,
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                            selected: isSelected,
-                            onSelected: (_) => setModalState(
-                                () => selectedPerson = person),
-                            selectedColor: Colors.teal,
-                            labelStyle: TextStyle(
-                              color: isSelected
-                                  ? Colors.white
-                                  : Colors.black87,
-                              fontSize: 13,
-                            ),
-                            side: isSelected
-                                ? BorderSide.none
-                                : const BorderSide(color: Colors.grey),
-                          );
-                        },
+                    if (filteredPersons.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          'Bu yaş grubunda kişi yok',
+                          style:
+                              TextStyle(color: Colors.grey[600], fontSize: 13),
+                        ),
+                      )
+                    else
+                      SizedBox(
+                        height: 36,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: filteredPersons.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 8),
+                          itemBuilder: (ctx, index) {
+                            final person = filteredPersons[index];
+                            final isSelected =
+                                selectedPerson?.id == person.id;
+                            final isSelf =
+                                person.id == viewModel.selfPerson?.id;
+                            return ChoiceChip(
+                              label: Text(
+                                isSelf ? 'Ben' : person.name,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              selected: isSelected,
+                              onSelected: (_) => setModalState(
+                                  () => selectedPerson = person),
+                              selectedColor: Colors.teal,
+                              labelStyle: TextStyle(
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.black87,
+                                fontSize: 13,
+                              ),
+                              side: isSelected
+                                  ? BorderSide.none
+                                  : const BorderSide(color: Colors.grey),
+                            );
+                          },
+                        ),
                       ),
-                    ),
                     const SizedBox(height: 16),
                   ],
 
@@ -251,13 +287,11 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
 
           return Column(
             children: [
-              // Kişi filtre çubuğu
+              // Yaş grubu filtre çubuğu
               if (viewModel.persons.length > 1)
-                _PersonFilterBar(
-                  persons: viewModel.persons,
-                  selectedPerson: viewModel.selectedPerson,
-                  selfPerson: viewModel.selfPerson,
-                  onSelect: (p) => viewModel.selectPerson(p),
+                AudienceFilterBar(
+                  selected: viewModel.audienceFilter,
+                  onSelect: (g) => viewModel.setAudienceFilter(g),
                 ),
 
               // Alerji listesi
@@ -268,15 +302,20 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
                       return const Center(
                           child: CircularProgressIndicator());
                     }
-                    if (viewModel.allergies.isEmpty) {
+                    if (viewModel.entries.isEmpty) {
                       return const Center(
                           child: Text('Alerji bulunamadı.'));
                     }
 
                     return ListView.builder(
-                      itemCount: viewModel.allergies.length,
+                      itemCount: viewModel.entries.length,
                       itemBuilder: (context, index) {
-                        final allergy = viewModel.allergies[index];
+                        final entry = viewModel.entries[index];
+                        final allergy = entry.allergy;
+                        final isSelf =
+                            entry.owner.id == viewModel.selfPerson?.id;
+                        final ownerName =
+                            isSelf ? 'Ben' : entry.owner.name;
                         return Card(
                           margin: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 8),
@@ -290,8 +329,34 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold),
                             ),
-                            subtitle: Text(
-                              'Şiddet: ${allergy.level.label} · ${allergy.createdDate.day}/${allergy.createdDate.month}/${allergy.createdDate.year}',
+                            subtitle: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Şiddet: ${allergy.level.label} · ${allergy.createdDate.day}/${allergy.createdDate.month}/${allergy.createdDate.year}',
+                                ),
+                                Padding(
+                                  padding:
+                                      const EdgeInsets.only(top: 2),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.person,
+                                          size: 13,
+                                          color: Colors.teal),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        ownerName,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.teal,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                             trailing: IconButton(
                               icon: const Icon(
@@ -314,51 +379,6 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-class _PersonFilterBar extends StatelessWidget {
-  final List<Person> persons;
-  final Person? selectedPerson;
-  final Person? selfPerson;
-  final void Function(Person) onSelect;
-
-  const _PersonFilterBar({
-    required this.persons,
-    required this.selectedPerson,
-    required this.selfPerson,
-    required this.onSelect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: persons.map((p) {
-            final isSelected = selectedPerson?.id == p.id;
-            final isSelf = p.id == selfPerson?.id;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(isSelf ? 'Ben' : p.name),
-                selected: isSelected,
-                selectedColor: Colors.teal,
-                labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : Colors.black87,
-                  fontWeight:
-                      isSelected ? FontWeight.w600 : FontWeight.normal,
-                ),
-                onSelected: (_) => onSelect(p),
-              ),
-            );
-          }).toList(),
-        ),
       ),
     );
   }

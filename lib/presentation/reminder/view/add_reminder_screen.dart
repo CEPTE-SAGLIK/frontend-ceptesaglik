@@ -4,6 +4,8 @@ import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
 import 'package:health_asistants/core/utils/theme/text_styles.dart';
 import 'package:health_asistants/data/model/person.dart';
+import 'package:health_asistants/data/model/reminder.dart';
+import 'package:health_asistants/presentation/components/add_person_sheet.dart';
 import 'package:health_asistants/presentation/components/custom_button.dart';
 import 'package:health_asistants/presentation/components/custom_text_input.dart';
 import 'package:health_asistants/presentation/components/time_picker_selector.dart';
@@ -84,11 +86,13 @@ class _AddReminderContentState extends State<_AddReminderContent> {
                   onChanged: viewModel.setTitle,
                 ),
 
-                // 1b. KİŞİ SEÇİMİ (birden fazla kişi varsa)
-                if (viewModel.persons.length > 1) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  _buildPersonSelector(viewModel),
-                ],
+                // 1a. YAŞ GRUBU SEÇİMİ
+                const SizedBox(height: AppSpacing.lg),
+                _buildAudienceSelector(viewModel),
+
+                // 1b. KİŞİ SEÇİMİ (seçili yaş grubundaki kişiler)
+                const SizedBox(height: AppSpacing.md),
+                _buildPersonSelector(viewModel),
 
                 const SizedBox(height: AppSpacing.xl),
 
@@ -312,7 +316,84 @@ class _AddReminderContentState extends State<_AddReminderContent> {
     );
   }
 
+  Widget _buildAudienceSelector(AddReminderViewModel viewModel) {
+    const groups = <(AudienceGroup, String, IconData)>[
+      (AudienceGroup.adult, 'Yetişkin', Icons.person),
+      (AudienceGroup.elderly, 'Yaşlı', Icons.elderly),
+      (AudienceGroup.child, 'Çocuk', Icons.child_care),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: AppSpacing.sm),
+          child: Text(
+            "Yaş Grubu",
+            style: AppTextStyles.labelLarge.copyWith(
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+        Row(
+          children: [
+            for (var i = 0; i < groups.length; i++) ...[
+              if (i > 0) const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => viewModel.setAudienceGroup(groups[i].$1),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.md,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(AppSpacing.md),
+                      border: viewModel.audienceGroup == groups[i].$1
+                          ? Border.all(color: AppColors.primaryBlue, width: 2)
+                          : Border.all(color: Colors.transparent),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.outlineVariant,
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          groups[i].$3,
+                          size: 22,
+                          color: viewModel.audienceGroup == groups[i].$1
+                              ? AppColors.primaryBlue
+                              : AppColors.textSecondary,
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          groups[i].$2,
+                          style: AppTextStyles.bodySmall.copyWith(
+                            fontWeight: viewModel.audienceGroup == groups[i].$1
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: viewModel.audienceGroup == groups[i].$1
+                                ? AppColors.primaryBlue
+                                : AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildPersonSelector(AddReminderViewModel viewModel) {
+    final bool isEmpty = viewModel.filteredPersons.isEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -325,14 +406,24 @@ class _AddReminderContentState extends State<_AddReminderContent> {
             ),
           ),
         ),
+        if (isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: AppSpacing.xs),
+            child: Text(
+              'Bu yaş grubunda kişi yok. "Ekle" ile yeni kişi ekleyebilirsiniz.',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
         SizedBox(
           height: 36,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: viewModel.persons.length + 1,
+            itemCount: viewModel.filteredPersons.length + 1,
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
-              if (index == viewModel.persons.length) {
+              if (index == viewModel.filteredPersons.length) {
                 return GestureDetector(
                   onTap: () => _showAddPersonDialog(context, viewModel),
                   child: Container(
@@ -354,7 +445,7 @@ class _AddReminderContentState extends State<_AddReminderContent> {
                   ),
                 );
               }
-              final Person person = viewModel.persons[index];
+              final Person person = viewModel.filteredPersons[index];
               final bool isSelected =
                   viewModel.selectedPerson?.id == person.id;
               final bool isSelf = person.id == viewModel.selfPerson?.id;
@@ -379,34 +470,10 @@ class _AddReminderContentState extends State<_AddReminderContent> {
     );
   }
 
-  void _showAddPersonDialog(
-      BuildContext context, AddReminderViewModel viewModel) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Kişi Ekle'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: 'Ad Soyad'),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('İptal'),
-          ),
-          TextButton(
-            onPressed: () async {
-              final name = controller.text.trim();
-              Navigator.pop(ctx);
-              if (name.isNotEmpty) await viewModel.addPerson(name);
-            },
-            child: const Text('Ekle'),
-          ),
-        ],
-      ),
-    );
+  Future<void> _showAddPersonDialog(
+      BuildContext context, AddReminderViewModel viewModel) async {
+    final draft = await showAddPersonSheet(context);
+    if (draft != null) await viewModel.addPerson(draft);
   }
 
   Frequency? _getFrequencyFromLabel(String? label) {

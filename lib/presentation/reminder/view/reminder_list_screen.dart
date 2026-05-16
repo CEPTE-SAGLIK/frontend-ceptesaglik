@@ -99,11 +99,19 @@ class _ReminderListScreenState extends State<ReminderListScreen>
             );
           }
 
-          return TabBarView(
-            controller: _tabController,
+          return Column(
             children: [
-              _buildReminderList(viewModel.activeReminders, viewModel),
-              _buildReminderList(viewModel.completedReminders, viewModel),
+              _buildAudienceFilter(viewModel),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildReminderList(viewModel.activeReminders, viewModel),
+                    _buildReminderList(
+                        viewModel.completedReminders, viewModel),
+                  ],
+                ),
+              ),
             ],
           );
         },
@@ -111,6 +119,33 @@ class _ReminderListScreenState extends State<ReminderListScreen>
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddReminderSheet(context),
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildAudienceFilter(ReminderListViewModel viewModel) {
+    const options = <(AudienceGroup?, String)>[
+      (null, 'Tümü'),
+      (AudienceGroup.adult, 'Yetişkin'),
+      (AudienceGroup.elderly, 'Yaşlı'),
+      (AudienceGroup.child, 'Çocuk'),
+    ];
+    return SizedBox(
+      height: 52,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        itemCount: options.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final option = options[index];
+          final selected = viewModel.audienceFilter == option.$1;
+          return ChoiceChip(
+            label: Text(option.$2),
+            selected: selected,
+            onSelected: (_) => viewModel.setAudienceFilter(option.$1),
+          );
+        },
       ),
     );
   }
@@ -237,14 +272,20 @@ class _ReminderCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               const SizedBox(height: 4),
-              Text(
-                dateFormat.format(reminder.dateTime),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: reminder.dateTime.isBefore(DateTime.now())
-                      ? Colors.red
-                      : Colors.grey,
-                ),
+              Row(
+                children: [
+                  Text(
+                    dateFormat.format(reminder.dateTime),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: reminder.dateTime.isBefore(DateTime.now())
+                          ? Colors.red
+                          : Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildAudienceBadge(reminder.audienceGroup),
+                ],
               ),
             ],
           ),
@@ -253,6 +294,29 @@ class _ReminderCard extends StatelessWidget {
             onChanged: (_) => onToggle(),
           ),
           isThreeLine: reminder.description != null,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAudienceBadge(AudienceGroup group) {
+    final (String label, Color color) = switch (group) {
+      AudienceGroup.adult => ('Yetişkin', AppColors.primaryBlue),
+      AudienceGroup.elderly => ('Yaşlı', Colors.deepOrange),
+      AudienceGroup.child => ('Çocuk', Colors.teal),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          color: color,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );

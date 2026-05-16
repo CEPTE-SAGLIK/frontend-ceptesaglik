@@ -1,4 +1,9 @@
+import 'package:health_asistants/data/model/reminder.dart' show AudienceGroup;
+
+export 'package:health_asistants/data/model/reminder.dart' show AudienceGroup;
+
 enum FrequencyType {
+  none('Tek Seferlik'),
   daily('Her Gün'),
   everyOtherDay('Gün Aşırı'),
   weekly('Haftada Bir'),
@@ -11,7 +16,7 @@ enum FrequencyType {
   static FrequencyType fromLabel(String label) {
     return FrequencyType.values.firstWhere(
       (e) => e.label == label,
-      orElse: () => FrequencyType.daily,
+      orElse: () => FrequencyType.none,
     );
   }
 }
@@ -27,6 +32,8 @@ class Medicine {
   final DateTime? endDate;
   final String? notes;
   final String? personId;
+  final AudienceGroup audienceGroup;
+  final DateTime? audienceBirthDate; // Hedef kişinin doğum tarihi
 
   Medicine({
     required this.id,
@@ -39,6 +46,8 @@ class Medicine {
     this.endDate,
     this.notes,
     this.personId,
+    this.audienceGroup = AudienceGroup.adult,
+    this.audienceBirthDate,
   });
 
   Medicine copyWith({
@@ -52,6 +61,8 @@ class Medicine {
     DateTime? endDate,
     String? notes,
     String? personId,
+    AudienceGroup? audienceGroup,
+    DateTime? audienceBirthDate,
   }) {
     return Medicine(
       id: id ?? this.id,
@@ -64,6 +75,8 @@ class Medicine {
       endDate: endDate ?? this.endDate,
       notes: notes ?? this.notes,
       personId: personId ?? this.personId,
+      audienceGroup: audienceGroup ?? this.audienceGroup,
+      audienceBirthDate: audienceBirthDate ?? this.audienceBirthDate,
     );
   }
 
@@ -86,10 +99,11 @@ class Medicine {
         (e) => e.name == rawLower || e.label == rawStr,
         orElse: () {
           switch (int.tryParse(rawStr)) {
+            case 0: return FrequencyType.none;
             case 1: return FrequencyType.daily;
             case 2: return FrequencyType.weekly;
             case 3: return FrequencyType.monthly;
-            default: return FrequencyType.daily;
+            default: return FrequencyType.none;
           }
         },
       );
@@ -103,6 +117,23 @@ class Medicine {
 
     final endRaw = json['endDate'] ?? json['EndDate'];
     final endDate = endRaw != null ? DateTime.parse(endRaw as String) : null;
+
+    // Backend AudienceGroup'u int (0/1/2) ya da string ("adult"...) dönebilir
+    final audRaw = json['audienceGroup'] ?? json['AudienceGroup'];
+    AudienceGroup audienceGroup = AudienceGroup.adult;
+    if (audRaw is int && audRaw >= 0 && audRaw < AudienceGroup.values.length) {
+      audienceGroup = AudienceGroup.values[audRaw];
+    } else if (audRaw != null) {
+      final s = audRaw.toString().toLowerCase();
+      audienceGroup = AudienceGroup.values.firstWhere(
+        (e) => e.name == s,
+        orElse: () => AudienceGroup.adult,
+      );
+    }
+
+    final audBdRaw = json['audienceBirthDate'] ?? json['AudienceBirthDate'];
+    final DateTime? audienceBirthDate =
+        audBdRaw is String ? DateTime.tryParse(audBdRaw) : null;
 
     // Backend has Time field (single time string); frontend has reminderTimes list
     final timeRaw = json['time'] ?? json['Time'];
@@ -131,6 +162,8 @@ class Medicine {
       endDate: endDate,
       notes: notes,
       personId: personId,
+      audienceGroup: audienceGroup,
+      audienceBirthDate: audienceBirthDate,
     );
   }
 
@@ -146,6 +179,8 @@ class Medicine {
       'endDate': endDate?.toIso8601String(),
       'notes': notes,
       'personId': personId,
+      'audienceGroup': audienceGroup.name,
+      'audienceBirthDate': audienceBirthDate?.toIso8601String(),
     };
   }
 }

@@ -119,14 +119,9 @@ class CalendarViewModel extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<Person?> addPerson(String name) async {
-    final parts = name.trim().split(' ');
-    final person = Person(
-      id: '', userId: '', name: parts.first,
-      surname: parts.length > 1 ? parts.skip(1).join(' ') : '',
-      birthDate: DateTime(1990, 1, 1), gender: Gender.male,
-    );
-    final result = await _userRepository.addFamilyMember(person);
+  /// [draft] AddPersonSheet'ten gelen kişi (id/userId boş, doğum tarihi dolu).
+  Future<Person?> addPerson(Person draft) async {
+    final result = await _userRepository.addFamilyMember(draft);
     if (result.isSuccess && result.data != null) {
       await loadPersons();
       return _persons.firstWhere(
@@ -194,6 +189,8 @@ class CalendarViewModel extends ChangeNotifier {
     required ReminderType type,
     required TimeOfDay time,
     RepeatType repeatType = RepeatType.none,
+    AudienceGroup audienceGroup = AudienceGroup.adult,
+    DateTime? audienceBirthDate,
     String? personName,
     String? targetPersonId,
   }) async {
@@ -233,6 +230,8 @@ class CalendarViewModel extends ChangeNotifier {
         startDate: DateTime(_selectedDay.year, _selectedDay.month, _selectedDay.day),
         notes: description,
         personId: targetPersonId,
+        audienceGroup: audienceGroup,
+        audienceBirthDate: audienceBirthDate,
       );
       final medResult = await _medicineRepository.create(medicine);
       if (medResult.isSuccess) {
@@ -252,6 +251,8 @@ class CalendarViewModel extends ChangeNotifier {
       type: type,
       dateTime: dateTime,
       repeatType: repeatType,
+      audienceGroup: audienceGroup,
+      audienceBirthDate: audienceBirthDate,
       isActive: true,
       createdAt: DateTime.now(),
     );
@@ -411,13 +412,14 @@ class CalendarViewModel extends ChangeNotifier {
 
   FrequencyType _repeatToFrequency(RepeatType repeatType) {
     switch (repeatType) {
+      case RepeatType.none:
+        return FrequencyType.none;
+      case RepeatType.daily:
+        return FrequencyType.daily;
       case RepeatType.weekly:
         return FrequencyType.weekly;
       case RepeatType.monthly:
         return FrequencyType.monthly;
-      case RepeatType.daily:
-      case RepeatType.none:
-        return FrequencyType.daily;
     }
   }
 }

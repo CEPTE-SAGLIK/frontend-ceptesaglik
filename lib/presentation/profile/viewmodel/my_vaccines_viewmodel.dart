@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import 'package:health_asistants/data/model/reminder.dart';
 import 'package:health_asistants/data/model/vaccine_schedule.dart';
 import 'package:health_asistants/data/model/person.dart';
+import 'package:health_asistants/core/utils/audience_helper.dart';
 import 'package:health_asistants/data/repository/reminder_repository.dart';
 import 'package:health_asistants/data/repository/vaccine_repository.dart';
 import 'package:health_asistants/data/repository/user_repository.dart';
@@ -17,8 +18,17 @@ class MyVaccinesViewModel extends ChangeNotifier {
 
   MyVaccinesStatus _status = MyVaccinesStatus.initial;
   final List<Person> _peopleWithVaccines = [];
-  final List<Person> _adultPeople = [];
+
+  // Yaş grubuna göre ayrılmış aile üyeleri (audienceForPerson ile sınıflanır)
+  final List<Person> _adultPeople = []; // 18-64
+  final List<Person> _elderlyPeople = []; // >= 65
+  final List<Person> _childPeople = []; // < 18 (Person tablosundan)
+
+  Person? _selfPerson;
   int _selectedAdultIndex = 0;
+  int _selectedElderlyIndex = 0;
+  int _selectedChildPersonIndex = 0;
+
   List<VaccineSchedule> _standardSchedule = [];
   DateTime? _selectedSimDate;
   String? _errorMessage;
@@ -33,22 +43,50 @@ class MyVaccinesViewModel extends ChangeNotifier {
 
   MyVaccinesStatus get status => _status;
   List<Person> get peopleWithVaccines => _peopleWithVaccines;
+
   List<Person> get adultPersons => _adultPeople;
+  List<Person> get elderlyPersons => _elderlyPeople;
+  List<Person> get childPersons => _childPeople;
+
   int get selectedAdultIndex => _selectedAdultIndex;
+  int get selectedElderlyIndex => _selectedElderlyIndex;
+  int get selectedChildPersonIndex => _selectedChildPersonIndex;
+
   Person? get selectedAdult =>
       _adultPeople.isNotEmpty ? _adultPeople[_selectedAdultIndex] : null;
+  Person? get selectedElderly =>
+      _elderlyPeople.isNotEmpty ? _elderlyPeople[_selectedElderlyIndex] : null;
+  Person? get selectedChildPerson => _childPeople.isNotEmpty
+      ? _childPeople[_selectedChildPersonIndex]
+      : null;
+
   List<VaccineSchedule> get standardSchedule => _standardSchedule;
   DateTime? get selectedSimDate => _selectedSimDate;
   String? get errorMessage => _errorMessage;
 
   /// Giriş yapan kullanıcının kendi Person'ı
-  Person? get selfPerson =>
-      _adultPeople.isNotEmpty ? _adultPeople.first : null;
+  Person? get selfPerson => _selfPerson;
 
   void selectAdult(String id) {
     final idx = _adultPeople.indexWhere((p) => p.id == id);
     if (idx != -1 && _selectedAdultIndex != idx) {
       _selectedAdultIndex = idx;
+      notifyListeners();
+    }
+  }
+
+  void selectElderly(String id) {
+    final idx = _elderlyPeople.indexWhere((p) => p.id == id);
+    if (idx != -1 && _selectedElderlyIndex != idx) {
+      _selectedElderlyIndex = idx;
+      notifyListeners();
+    }
+  }
+
+  void selectChildPerson(String id) {
+    final idx = _childPeople.indexWhere((p) => p.id == id);
+    if (idx != -1 && _selectedChildPersonIndex != idx) {
+      _selectedChildPersonIndex = idx;
       notifyListeners();
     }
   }
@@ -82,28 +120,25 @@ class MyVaccinesViewModel extends ChangeNotifier {
     try {
       _peopleWithVaccines.clear();
       _adultPeople.clear();
+      _elderlyPeople.clear();
+      _childPeople.clear();
+
       final selfResult = await _userRepository.getCurrentPerson();
       final familyResult = await _userRepository.getFamilyMembers();
 
-      final allPeopleData = <Map<String, dynamic>>[];
-
+      final people = <Person>[];
       if (selfResult.isSuccess && selfResult.data != null) {
-        allPeopleData.add({'person': selfResult.data!, 'isChild': false});
+        _selfPerson = selfResult.data!;
+        people.add(selfResult.data!);
       }
       if (familyResult.isSuccess && familyResult.data != null) {
-        for (final p in familyResult.data!) {
-          final isChild =
-              p.relationship?.toLowerCase().contains('çocuk') ?? false;
-          allPeopleData.add({'person': p, 'isChild': isChild});
-        }
+        people.addAll(familyResult.data!);
       }
 
-      for (final data in allPeopleData) {
-        final Person person = data['person'] as Person;
-        final bool isChild = data['isChild'] as bool;
-
+      for (final person in people) {
+        // Tüm kayıtlar Person tablosunda — aşılar PersonId ile bağlı.
         final vaccineResult =
-            await _vaccineRepository.getVaccinesForTarget(person.id, isChild);
+            await _vaccineRepository.getVaccinesForTarget(person.id, false);
 
         final personWithVaccines = Person(
           id: person.id,
@@ -122,12 +157,30 @@ class MyVaccinesViewModel extends ChangeNotifier {
         );
 
         _peopleWithVaccines.add(personWithVaccines);
-        if (!isChild) _adultPeople.add(personWithVaccines);
+
+        // Yaş grubuna göre sınıfla
+        switch (audienceForPerson(personWithVaccines)) {
+          case AudienceGroup.adult:
+            _adultPeople.add(personWithVaccines);
+            break;
+          case AudienceGroup.elderly:
+            _elderlyPeople.add(personWithVaccines);
+            break;
+          case AudienceGroup.child:
+            _childPeople.add(personWithVaccines);
+            break;
+        }
       }
 
       // Seçili index geçerliliğini koru
       if (_selectedAdultIndex >= _adultPeople.length) {
         _selectedAdultIndex = 0;
+      }
+      if (_selectedElderlyIndex >= _elderlyPeople.length) {
+        _selectedElderlyIndex = 0;
+      }
+      if (_selectedChildPersonIndex >= _childPeople.length) {
+        _selectedChildPersonIndex = 0;
       }
 
       _status = MyVaccinesStatus.loaded;
@@ -138,25 +191,13 @@ class MyVaccinesViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> addAdultPerson(String name, {String? surname}) async {
+  /// AddPersonSheet'ten gelen kişi taslağını (id/userId boş, doğum tarihi dolu)
+  /// aile üyesi olarak ekler. Yaş grubu doğum tarihinden türetilir.
+  Future<bool> addPerson(Person draft) async {
     _status = MyVaccinesStatus.loading;
     notifyListeners();
 
-    final parts = name.trim().split(' ');
-    final firstName = parts.first;
-    final lastName =
-        parts.length > 1 ? parts.skip(1).join(' ') : (surname ?? '');
-
-    final person = Person(
-      id: '',
-      userId: '',
-      name: firstName,
-      surname: lastName,
-      birthDate: DateTime(1990, 1, 1),
-      gender: Gender.male,
-    );
-
-    final result = await _userRepository.addFamilyMember(person);
+    final result = await _userRepository.addFamilyMember(draft);
     if (result.isSuccess) {
       await loadVaccines();
       return true;
@@ -194,7 +235,7 @@ class MyVaccinesViewModel extends ChangeNotifier {
         final userResult = await _userRepository.getCurrentUser();
         if (userResult.isSuccess && userResult.data != null) {
           // Kişinin adını bul → Reminder başlığına ekle
-          final Person? person = _adultPeople.cast<Person?>().firstWhere(
+          final Person? person = _peopleWithVaccines.cast<Person?>().firstWhere(
                 (p) => p?.id == targetId,
                 orElse: () => null,
               );

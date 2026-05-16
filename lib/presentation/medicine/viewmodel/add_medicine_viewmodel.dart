@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import 'package:health_asistants/core/utils/audience_helper.dart';
 import 'package:health_asistants/data/model/medicine.dart';
 import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/data/repository/medicine_repository.dart';
@@ -20,11 +21,16 @@ class AddMedicineViewModel extends ChangeNotifier {
   AddMedicineStatus _status = AddMedicineStatus.initial;
   String? _errorMessage;
 
+  // Düzenleme modu: null ise yeni ilaç, dolu ise mevcut ilacın id'si
+  String? _editingId;
+
   // Form alanları
   String _name = '';
   FrequencyType _frequencyType = FrequencyType.daily;
   TimeOfDay? _selectedTime;
+  int _timesPerDay = 1;
   String _notes = '';
+  AudienceGroup _audienceGroup = AudienceGroup.adult;
 
   // Kişi seçimi
   List<Person> _persons = [];
@@ -37,10 +43,17 @@ class AddMedicineViewModel extends ChangeNotifier {
   String get name => _name;
   FrequencyType get frequencyType => _frequencyType;
   TimeOfDay? get selectedTime => _selectedTime;
+  int get timesPerDay => _timesPerDay;
   String get notes => _notes;
   List<Person> get persons => _persons;
   Person? get selectedPerson => _selectedPerson;
   Person? get selfPerson => _selfPerson;
+  AudienceGroup get audienceGroup => _audienceGroup;
+  bool get isEditMode => _editingId != null;
+
+  /// Seçili yaş grubuna uyan kişiler
+  List<Person> get filteredPersons =>
+      _persons.where((p) => audienceForPerson(p) == _audienceGroup).toList();
 
   List<FrequencyType> get frequencyOptions => FrequencyType.values;
 
@@ -67,6 +80,11 @@ class AddMedicineViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateTimesPerDay(int value) {
+    _timesPerDay = value;
+    notifyListeners();
+  }
+
   void updateNotes(String value) {
     _notes = value;
     notifyListeners();
@@ -77,6 +95,18 @@ class AddMedicineViewModel extends ChangeNotifier {
       _selectedPerson = person;
       notifyListeners();
     }
+  }
+
+  /// Yaş grubunu değiştirir; seçili kişi yeni gruba uymuyorsa uygun kişiye geçer.
+  void setAudienceGroup(AudienceGroup group) {
+    if (_audienceGroup == group) return;
+    _audienceGroup = group;
+    if (_selectedPerson != null &&
+        audienceForPerson(_selectedPerson!) != group) {
+      final matches = filteredPersons;
+      _selectedPerson = matches.isNotEmpty ? matches.first : null;
+    }
+    notifyListeners();
   }
 
   Future<void> loadPersons() async {
@@ -99,27 +129,58 @@ class AddMedicineViewModel extends ChangeNotifier {
         _persons.addAll(childrenResult.data!);
       }
       _selectedPerson = _selfPerson;
+      if (_selfPerson != null) {
+        _audienceGroup = audienceForPerson(_selfPerson!);
+      }
       notifyListeners();
     } catch (_) {
       notifyListeners();
     }
   }
 
-  Future<Person?> addPerson(String name) async {
+  /// Düzenleme modunu başlatır: kişi listesini yükler ve formu mevcut ilaçla doldurur.
+  Future<void> loadForEdit(Medicine medicine) async {
+    _editingId = medicine.id;
+    _name = medicine.name;
+    _frequencyType = medicine.frequencyType;
+    _timesPerDay = medicine.timesPerDay;
+    _notes = medicine.notes ?? '';
+    _audienceGroup = medicine.audienceGroup;
+    _status = AddMedicineStatus.initial;
+    _errorMessage = null;
+
+    if (medicine.reminderTimes.isNotEmpty) {
+      final t = medicine.reminderTimes.first;
+      _selectedTime = TimeOfDay(hour: t.hour, minute: t.minute);
+    } else {
+      _selectedTime = null;
+    }
+
+    notifyListeners();
+
+    // Kişi listesini yükle ve ilaç sahibini seç
+    await loadPersons();
+    if (medicine.personId != null && medicine.personId!.isNotEmpty) {
+      final match = _persons.where((p) => p.id == medicine.personId).firstOrNull;
+      if (match != null) {
+        _audienceGroup = audienceForPerson(match);
+        _selectedPerson = match;
+        notifyListeners();
+      }
+    }
+  }
+
+  /// [draft] AddPersonSheet'ten gelen kişi (id/userId boş, doğum tarihi dolu).
+  Future<Person?> addPerson(Person draft) async {
     if (_userRepository == null) return null;
-    final parts = name.trim().split(' ');
-    final person = Person(
-      id: '', userId: '', name: parts.first,
-      surname: parts.length > 1 ? parts.skip(1).join(' ') : '',
-      birthDate: DateTime(1990, 1, 1), gender: Gender.male,
-    );
-    final result = await _userRepository.addFamilyMember(person);
+    final result = await _userRepository.addFamilyMember(draft);
     if (result.isSuccess && result.data != null) {
       await loadPersons();
       final found = _persons.firstWhere(
         (p) => p.id == result.data!.id,
         orElse: () => result.data!,
       );
+      _audienceGroup = audienceForPerson(found);
       _selectedPerson = found;
       notifyListeners();
       return found;
@@ -128,13 +189,18 @@ class AddMedicineViewModel extends ChangeNotifier {
   }
 
   void reset() {
+    _editingId = null;
     _status = AddMedicineStatus.initial;
     _errorMessage = null;
     _name = '';
     _frequencyType = FrequencyType.daily;
     _selectedTime = null;
+    _timesPerDay = 1;
     _notes = '';
     _selectedPerson = _selfPerson;
+    _audienceGroup = _selfPerson != null
+        ? audienceForPerson(_selfPerson!)
+        : AudienceGroup.adult;
     notifyListeners();
   }
 
@@ -161,7 +227,34 @@ class AddMedicineViewModel extends ChangeNotifier {
             )
           : null;
 
-      // Seçili kişi self değilse ilaç adına isim ön-eki ekle
+      if (isEditMode) {
+        // Düzenleme: isim ön-eki uygulanmaz, kullanıcı formdaki adı doğrudan kaydeder
+        final medicine = Medicine(
+          id: _editingId!,
+          name: _name.trim(),
+          frequencyType: _frequencyType,
+          timesPerDay: _timesPerDay,
+          reminderTimes: reminderTime != null ? [reminderTime] : [],
+          startDate: now,
+          notes: _notes.trim().isNotEmpty ? _notes.trim() : null,
+          personId: _selectedPerson?.id,
+          audienceGroup: _audienceGroup,
+          audienceBirthDate: (_selectedPerson ?? _selfPerson)?.birthDate,
+        );
+
+        final result = await _medicineRepository.update(medicine);
+        if (!result.isSuccess) {
+          _status = AddMedicineStatus.error;
+          _errorMessage = result.error ?? 'İlaç güncellenemedi';
+          notifyListeners();
+          return null;
+        }
+        _status = AddMedicineStatus.saved;
+        notifyListeners();
+        return result.data;
+      }
+
+      // Yeni ilaç: self değilse isim ön-eki ekle
       final isSelf = _selectedPerson == null ||
           _selectedPerson!.id == _selfPerson?.id;
       final String finalName;
@@ -183,6 +276,8 @@ class AddMedicineViewModel extends ChangeNotifier {
         startDate: now,
         notes: _notes.trim().isNotEmpty ? _notes.trim() : null,
         personId: _selectedPerson?.id,
+        audienceGroup: _audienceGroup,
+        audienceBirthDate: (_selectedPerson ?? _selfPerson)?.birthDate,
       );
 
       final result = await _medicineRepository.create(medicine);

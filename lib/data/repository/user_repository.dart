@@ -129,6 +129,9 @@ class UserRepository extends BaseRepository {
 
   Future<Result<Person>> addFamilyMember(Person person) async {
     try {
+      if (_isUnderAge(person.birthDate, 18)) {
+        return _createChildAsPerson(person);
+      }
       final apiResult = await _personRepository.createPerson(
         name: person.name,
         surname: person.surname,
@@ -143,6 +146,47 @@ class UserRepository extends BaseRepository {
         return Result.success(created);
       }
       return Result.failure(apiResult.error ?? 'Aile üyesi eklenemedi');
+    } catch (e) {
+      return Result.failure(formatError(e));
+    }
+  }
+
+  bool _isUnderAge(DateTime birthDate, int threshold) {
+    final now = DateTime.now();
+    var age = now.year - birthDate.year;
+    if (now.month < birthDate.month ||
+        (now.month == birthDate.month && now.day < birthDate.day)) {
+      age--;
+    }
+    return age < threshold;
+  }
+
+  Future<Result<Person>> _createChildAsPerson(Person person) async {
+    try {
+      final userResult = await getCurrentUser();
+      if (!userResult.isSuccess) {
+        return Result.failure('Kullanıcı bilgisi alınamadı');
+      }
+      final body = {
+        'Name': person.name,
+        'BirthDate': person.birthDate.toIso8601String().split('.')[0],
+        'Gender': person.gender == Gender.female ? 1 : 0,
+        'UserId': userResult.data!.id,
+      };
+      final response = await apiClient.post<Map<String, dynamic>>(
+        ApiEndpoints.children,
+        body: body,
+        fromJson: (json) => json,
+      );
+      if (response.isSuccess && response.data != null) {
+        final raw = response.data!;
+        final data = raw['data'] ?? raw['Data'];
+        if (data is Map<String, dynamic>) {
+          final created = _childJsonToPerson(data);
+          if (created != null) return Result.success(created);
+        }
+      }
+      return Result.failure(response.errorMessage ?? 'Çocuk eklenemedi');
     } catch (e) {
       return Result.failure(formatError(e));
     }
@@ -265,8 +309,20 @@ class UserRepository extends BaseRepository {
     }
   }
 
-  Future<Result<Person>> deleteFamilyMember(String id) async {
-    return Result.failure('Person silme endpointi mevcut değil');
+  Future<Result<bool>> deleteFamilyMember(String id) async {
+    try {
+      final response = await apiClient.delete<Map<String, dynamic>>(
+        ApiEndpoints.person(id),
+        fromJson: (json) => json,
+      );
+      if (response.isSuccess) {
+        _familyMembers.removeWhere((p) => p.id == id);
+        return Result.success(true);
+      }
+      return Result.failure(response.errorMessage ?? 'Kişi silinemedi');
+    } catch (e) {
+      return Result.failure(formatError(e));
+    }
   }
 
   Future<Result<bool>> logout() async {
@@ -343,9 +399,10 @@ class UserRepository extends BaseRepository {
       _familyMembers.clear();
       return;
     }
-    _currentPerson ??= persons.first;
-    final self = persons.where((p) => p.id == _currentPerson!.id).toList();
-    _currentPerson = self.isNotEmpty ? self.first : persons.first;
+    // Hesap sahibinin profili IsAccountOwner bayrağıyla belirlenir;
+    // bayrak yoksa (eski veri) ilk kayıt yedek olarak kullanılır.
+    final owners = persons.where((p) => p.isAccountOwner).toList();
+    _currentPerson = owners.isNotEmpty ? owners.first : persons.first;
     _familyMembers
       ..clear()
       ..addAll(persons.where((p) => p.id != _currentPerson!.id));
@@ -376,6 +433,7 @@ class UserRepository extends BaseRepository {
       allergies: source.allergies,
       medicines: source.medicines,
       vaccines: source.vaccines,
+      isAccountOwner: source.isAccountOwner,
     );
   }
 }

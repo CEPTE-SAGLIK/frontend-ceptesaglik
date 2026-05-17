@@ -22,6 +22,7 @@ import 'package:health_asistants/presentation/profile/view/edit_profile_screen.d
 import 'package:health_asistants/presentation/profile/view/notification_settings_screen.dart';
 import 'package:health_asistants/presentation/profile/view/vaccines_screen.dart';
 import 'package:health_asistants/presentation/profile/view/my_children_screen.dart';
+import 'package:health_asistants/presentation/profile/view/family_members_screen.dart';
 import 'package:health_asistants/presentation/profile/view/add_vaccine_screen.dart';
 import 'package:health_asistants/presentation/record/view/medicine_view.dart';
 import 'package:health_asistants/presentation/reminder/view/add_reminder_screen.dart';
@@ -59,6 +60,7 @@ class AppRoutes {
   static const notificationSettings = '/notification-settings';
   static const myVaccines = '/my-vaccines';
   static const myChildren = '/my-children';
+  static const familyMembers = '/family-members';
   static const addVaccine = '/add-vaccine';
 
   // Başlangıç route'u
@@ -89,6 +91,7 @@ class AppRoutes {
     notificationSettings: (_) => const NotificationSettingsScreen(),
     myVaccines: (_) => const MyVaccinesScreen(),
     myChildren: (_) => const MyChildrenScreen(),
+    familyMembers: (_) => const FamilyMembersScreen(),
     addVaccine: (_) => const AddVaccineScreen(),
         illnesses: (_) => const IllnessesScreen(),
     allergies: (_) => const AllergiesScreen(),

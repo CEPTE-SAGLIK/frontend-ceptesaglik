@@ -4,7 +4,9 @@ import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
 import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/core/utils/theme/text_styles.dart';
+import 'package:health_asistants/data/model/medicine.dart';
 import 'package:health_asistants/data/model/person.dart';
+import 'package:health_asistants/presentation/components/add_person_sheet.dart';
 import 'package:health_asistants/presentation/components/custom_button.dart';
 import 'package:health_asistants/presentation/components/custom_input.dart';
 import 'package:health_asistants/presentation/components/custom_selector_field.dart';
@@ -20,24 +22,47 @@ class AddMedicineScreen extends StatefulWidget {
 }
 
 class _AddMedicineScreenState extends State<AddMedicineScreen> {
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _notesController = TextEditingController();
+  bool _initialized = false;
+
   @override
-  void initState() {
-    super.initState();
+  void dispose() {
+    _nameController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
+
+    final medicine = ModalRoute.of(context)?.settings.arguments as Medicine?;
+    final vm = context.read<AddMedicineViewModel>();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final vm = context.read<AddMedicineViewModel>();
-      vm.reset();
-      vm.loadPersons();
+      if (medicine != null) {
+        _nameController.text = medicine.name;
+        _notesController.text = medicine.notes ?? '';
+        vm.loadForEdit(medicine);
+      } else {
+        vm.reset();
+        vm.loadPersons();
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final isEdit = ModalRoute.of(context)?.settings.arguments is Medicine;
     return Scaffold(
       backgroundColor: AppColors.scaffoldBackground,
       appBar: AppBar(
         title: Text(
-          'İlaç Kaydı Ekleme',
+          isEdit ? 'İlaç Düzenle' : 'İlaç Kaydı Ekleme',
           style: AppTextStyles.headingMedium.copyWith(color: AppColors.black),
         ),
         centerTitle: true,
@@ -57,16 +82,20 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
               children: [
                 SizedBox(height: AppSpacing.sm),
                 _buildMedicineNameInput(viewModel),
-                if (viewModel.persons.length > 1) ...[
-                  SizedBox(height: AppSpacing.md),
-                  _buildPersonSelector(viewModel),
-                ],
+                SizedBox(height: AppSpacing.lg),
+                _buildAudienceSelector(viewModel),
+                SizedBox(height: AppSpacing.md),
+                _buildPersonSelector(viewModel),
                 SizedBox(height: AppSpacing.xxl),
                 _buildFrequencyAndTimeRow(viewModel),
+                if (viewModel.frequencyType != FrequencyType.none) ...[
+                  SizedBox(height: AppSpacing.lg),
+                  _buildTimesPerDaySelector(viewModel),
+                ],
                 SizedBox(height: AppSpacing.xxl),
                 _buildNotesInput(viewModel),
                 SizedBox(height: AppSpacing.xxxl + AppSpacing.xl),
-                _buildSaveButton(context, viewModel),
+                _buildSaveButton(context, viewModel, isEdit),
                 if (viewModel.status == AddMedicineStatus.error &&
                     viewModel.errorMessage != null)
                   Padding(
@@ -87,6 +116,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
   }
 
   Widget _buildPersonSelector(AddMedicineViewModel viewModel) {
+    final bool isEmpty = viewModel.filteredPersons.isEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -99,14 +129,24 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
             ),
           ),
         ),
+        if (isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: AppSpacing.xs),
+            child: Text(
+              'Bu yaş grubunda kişi yok. "Ekle" ile yeni kişi ekleyebilirsiniz.',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
         SizedBox(
           height: 36,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: viewModel.persons.length + 1,
+            itemCount: viewModel.filteredPersons.length + 1,
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
-              if (index == viewModel.persons.length) {
+              if (index == viewModel.filteredPersons.length) {
                 return GestureDetector(
                   onTap: () => _showAddPersonDialog(context, viewModel),
                   child: Container(
@@ -128,7 +168,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                   ),
                 );
               }
-              final Person person = viewModel.persons[index];
+              final Person person = viewModel.filteredPersons[index];
               final bool isSelected =
                   viewModel.selectedPerson?.id == person.id;
               final bool isSelf = person.id == viewModel.selfPerson?.id;
@@ -153,39 +193,91 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
     );
   }
 
-  void _showAddPersonDialog(
-      BuildContext context, AddMedicineViewModel viewModel) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Kişi Ekle'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: 'Ad Soyad'),
-          autofocus: true,
+  Future<void> _showAddPersonDialog(
+      BuildContext context, AddMedicineViewModel viewModel) async {
+    final draft = await showAddPersonSheet(context);
+    if (draft != null) await viewModel.addPerson(draft);
+  }
+
+  Widget _buildAudienceSelector(AddMedicineViewModel viewModel) {
+    const groups = <(AudienceGroup, String, IconData)>[
+      (AudienceGroup.adult, 'Yetişkin', Icons.person),
+      (AudienceGroup.elderly, 'Yaşlı', Icons.elderly),
+      (AudienceGroup.child, 'Çocuk', Icons.child_care),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: AppSpacing.sm),
+          child: Text(
+            'Yaş Grubu',
+            style: AppTextStyles.labelLarge.copyWith(
+              color: AppColors.textPrimary,
+            ),
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('İptal'),
-          ),
-          TextButton(
-            onPressed: () async {
-              final name = controller.text.trim();
-              Navigator.pop(ctx);
-              if (name.isNotEmpty) await viewModel.addPerson(name);
-            },
-            child: const Text('Ekle'),
-          ),
-        ],
-      ),
+        Row(
+          children: [
+            for (var i = 0; i < groups.length; i++) ...[
+              if (i > 0) const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => viewModel.setAudienceGroup(groups[i].$1),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(AppSpacing.md),
+                      border: viewModel.audienceGroup == groups[i].$1
+                          ? Border.all(color: AppColors.primaryBlue, width: 2)
+                          : Border.all(color: Colors.transparent),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.outlineVariant,
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          groups[i].$3,
+                          size: 22,
+                          color: viewModel.audienceGroup == groups[i].$1
+                              ? AppColors.primaryBlue
+                              : AppColors.textSecondary,
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          groups[i].$2,
+                          style: AppTextStyles.bodySmall.copyWith(
+                            fontWeight: viewModel.audienceGroup == groups[i].$1
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: viewModel.audienceGroup == groups[i].$1
+                                ? AppColors.primaryBlue
+                                : AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
     );
   }
 
   Widget _buildMedicineNameInput(AddMedicineViewModel viewModel) {
     return CustomTextInput(
       hintText: 'Örn: Parol (500 Mg)',
+      controller: _nameController,
       onChanged: viewModel.updateName,
     );
   }
@@ -213,10 +305,70 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
     );
   }
 
+  Widget _buildTimesPerDaySelector(AddMedicineViewModel viewModel) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: AppSpacing.sm),
+          child: Text(
+            'Günlük Kullanım',
+            style: AppTextStyles.labelLarge.copyWith(
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+        Row(
+          children: [
+            for (final count in [1, 2, 3, 4]) ...[
+              if (count > 1) const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => viewModel.updateTimesPerDay(count),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(AppSpacing.md),
+                      border: viewModel.timesPerDay == count
+                          ? Border.all(color: AppColors.primaryBlue, width: 2)
+                          : Border.all(color: Colors.transparent),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.outlineVariant,
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${count}x',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          fontWeight: viewModel.timesPerDay == count
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: viewModel.timesPerDay == count
+                              ? AppColors.primaryBlue
+                              : AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildNotesInput(AddMedicineViewModel viewModel) {
     return CustomInput(
       labelText: 'Ek Notlar',
       hintText: 'Örn: Uygulayan hekimin adı...',
+      controller: _notesController,
       onChanged: viewModel.updateNotes,
     );
   }
@@ -224,25 +376,36 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
   Widget _buildSaveButton(
     BuildContext context,
     AddMedicineViewModel viewModel,
+    bool isEdit,
   ) {
     final isLoading = viewModel.status == AddMedicineStatus.saving;
+    final label = isLoading
+        ? (isEdit ? 'Güncelleniyor...' : 'Kaydediliyor...')
+        : (isEdit ? 'Güncelle' : 'İlaç Kaydını Tamamla');
 
     return CustomButton(
-      text: isLoading ? 'Kaydediliyor...' : 'İlaç Kaydını Tamamla',
+      text: label,
       onPressed: isLoading
           ? () {}
           : () {
-              _handleSave(context, viewModel);
+              _handleSave(context, viewModel, isEdit);
             },
       backgroundColor: AppColors.primaryBlue,
       borderRadius: 30.0,
     );
   }
 
-  void _handleSave(BuildContext context, AddMedicineViewModel viewModel) async {
+  void _handleSave(BuildContext context, AddMedicineViewModel viewModel,
+      bool isEdit) async {
     final medicine = await viewModel.saveMedicine();
     if (medicine != null && context.mounted) {
-      SnackbarHelper.showSuccess(context, '${medicine.name} başarıyla kaydedildi');
+      // Main'deki Helper yapısı korundu + isEdit durumuna göre dinamik mesaj eklendi
+      SnackbarHelper.showSuccess(
+        context,
+        isEdit
+            ? '${medicine.name} başarıyla güncellendi'
+            : '${medicine.name} başarıyla kaydedildi',
+      );
       Navigator.pop(context, medicine);
     }
   }

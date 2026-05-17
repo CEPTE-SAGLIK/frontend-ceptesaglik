@@ -22,6 +22,68 @@ void main() {
     });
   });
 
+  group('AudienceGroup Enum', () {
+    test('should have all expected values', () {
+      expect(AudienceGroup.values.length, 3);
+      expect(AudienceGroup.values, contains(AudienceGroup.adult));
+      expect(AudienceGroup.values, contains(AudienceGroup.elderly));
+      expect(AudienceGroup.values, contains(AudienceGroup.child));
+    });
+
+    test('should default to adult when not provided', () {
+      final reminder = Reminder(
+        id: 'r',
+        personId: 'p',
+        title: 't',
+        type: ReminderType.custom,
+        dateTime: DateTime(2024, 1, 1),
+        createdAt: DateTime(2024, 1, 1),
+      );
+      expect(reminder.audienceGroup, AudienceGroup.adult);
+    });
+
+    test('should parse audienceGroup from JSON', () {
+      final json = {
+        'id': 'r',
+        'personId': 'p',
+        'title': 't',
+        'type': 'custom',
+        'dateTime': '2024-06-15T10:30:00.000',
+        'createdAt': '2024-01-01T00:00:00.000',
+        'audienceGroup': 'elderly',
+      };
+      expect(Reminder.fromJson(json).audienceGroup, AudienceGroup.elderly);
+    });
+
+    test('should default to adult for missing/unknown audienceGroup', () {
+      final json = {
+        'id': 'r',
+        'personId': 'p',
+        'title': 't',
+        'type': 'custom',
+        'dateTime': '2024-06-15T10:30:00.000',
+        'createdAt': '2024-01-01T00:00:00.000',
+      };
+      expect(Reminder.fromJson(json).audienceGroup, AudienceGroup.adult);
+    });
+
+    test('should roundtrip audienceGroup through JSON', () {
+      final reminder = Reminder(
+        id: 'r',
+        personId: 'p',
+        title: 't',
+        type: ReminderType.custom,
+        dateTime: DateTime(2024, 1, 1),
+        audienceGroup: AudienceGroup.child,
+        createdAt: DateTime(2024, 1, 1),
+      );
+      expect(
+        Reminder.fromJson(reminder.toJson()).audienceGroup,
+        AudienceGroup.child,
+      );
+    });
+  });
+
   group('Reminder Model', () {
     late Reminder reminder;
     late DateTime reminderDateTime;

@@ -12,6 +12,7 @@ class MedicineListViewModel extends ChangeNotifier {
   String? _errorMessage;
   List<Medicine> _medicines = [];
   String _searchQuery = '';
+  AudienceGroup? _audienceFilter;
 
   MedicineListViewModel({required MedicineRepository repository})
       : _repository = repository;
@@ -20,17 +21,25 @@ class MedicineListViewModel extends ChangeNotifier {
   MedicineListStatus get status => _status;
   String? get errorMessage => _errorMessage;
   String get searchQuery => _searchQuery;
+  AudienceGroup? get audienceFilter => _audienceFilter;
 
   List<Medicine> get medicines {
-    if (_searchQuery.isEmpty) return _medicines;
-    return _medicines
-        .where(
-          (m) =>
-              m.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-              (m.notes?.toLowerCase().contains(_searchQuery.toLowerCase()) ??
-                  false),
-        )
-        .toList();
+    return _medicines.where((m) {
+      if (_audienceFilter != null && m.audienceGroup != _audienceFilter) {
+        return false;
+      }
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        return m.name.toLowerCase().contains(q) ||
+            (m.notes?.toLowerCase().contains(q) ?? false);
+      }
+      return true;
+    }).toList();
+  }
+
+  void setAudienceFilter(AudienceGroup? group) {
+    _audienceFilter = group;
+    notifyListeners();
   }
 
   /// Aktif ilaçlar (bitiş tarihi geçmemiş)

@@ -4,6 +4,7 @@ import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/data/model/illness.dart';
 import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/presentation/illness/viewmodel/illness_viewmodel.dart';
+import 'package:health_asistants/presentation/components/audience_filter_bar.dart';
 
 String _statusLabel(IllnessStatus status) {
   switch (status) {
@@ -161,7 +162,7 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
     final nameController = TextEditingController();
     final notesController = TextEditingController();
     IllnessStatus selectedStatus = IllnessStatus.active;
-    Person? selectedPerson = viewModel.selectedPerson;
+    Person? selectedPerson = viewModel.selfPerson;
 
     showDialog(
       context: context,
@@ -190,7 +191,7 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
                         spacing: 8,
                         children: viewModel.persons.map((p) {
                           final isSelected = selectedPerson?.id == p.id;
-                          final isSelf = p.id == viewModel.persons.first.id;
+                          final isSelf = p.id == viewModel.selfPerson?.id;
                           return ChoiceChip(
                             label: Text(isSelf ? 'Ben' : p.name),
                             selected: isSelected,
@@ -297,12 +298,11 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
 
           return Column(
             children: [
-              // Kişi filtreleri
+              // Yaş grubu filtre çubuğu
               if (viewModel.persons.length > 1)
-                _PersonFilterBar(
-                  persons: viewModel.persons,
-                  selectedPerson: viewModel.selectedPerson,
-                  onSelect: (p) => viewModel.selectPerson(p),
+                AudienceFilterBar(
+                  selected: viewModel.audienceFilter,
+                  onSelect: (g) => viewModel.setAudienceFilter(g),
                 ),
 
               // Hastalık listesi
@@ -312,19 +312,25 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
                     if (viewModel.isLoading) {
                       return const Center(child: CircularProgressIndicator());
                     }
-                    if (viewModel.errorMessage != null) {
+                    if (viewModel.errorMessage != null &&
+                        viewModel.entries.isEmpty) {
                       return Center(child: Text(viewModel.errorMessage!));
                     }
-                    if (viewModel.illnesses.isEmpty) {
+                    if (viewModel.entries.isEmpty) {
                       return const Center(
                         child: Text('Henüz bir hastalık kaydı bulunamadı.'),
                       );
                     }
 
                     return ListView.builder(
-                      itemCount: viewModel.illnesses.length,
+                      itemCount: viewModel.entries.length,
                       itemBuilder: (context, index) {
-                        final illness = viewModel.illnesses[index];
+                        final entry = viewModel.entries[index];
+                        final illness = entry.illness;
+                        final isSelf =
+                            entry.owner.id == viewModel.selfPerson?.id;
+                        final ownerName =
+                            isSelf ? 'Ben' : entry.owner.name;
                         return Card(
                           margin: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 8),
@@ -367,6 +373,24 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
                                       ),
                                     ),
                                   ],
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.person,
+                                          size: 13, color: Colors.teal),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        ownerName,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.teal,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                                 if (illness.doctorNotes != null)
                                   Text(
@@ -414,50 +438,6 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
           onPressed: () => _showAddIllnessDialog(context, viewModel),
           backgroundColor: Colors.teal,
           child: const Icon(Icons.add, color: Colors.white),
-        ),
-      ),
-    );
-  }
-}
-
-class _PersonFilterBar extends StatelessWidget {
-  final List<Person> persons;
-  final Person? selectedPerson;
-  final void Function(Person) onSelect;
-
-  const _PersonFilterBar({
-    required this.persons,
-    required this.selectedPerson,
-    required this.onSelect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: persons.map((p) {
-            final isSelected = selectedPerson?.id == p.id;
-            final isSelf = p.id == persons.first.id;
-            final label = isSelf ? 'Ben' : p.name;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(label),
-                selected: isSelected,
-                selectedColor: Colors.teal,
-                labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : Colors.black87,
-                  fontWeight:
-                      isSelected ? FontWeight.w600 : FontWeight.normal,
-                ),
-                onSelected: (_) => onSelect(p),
-              ),
-            );
-          }).toList(),
         ),
       ),
     );

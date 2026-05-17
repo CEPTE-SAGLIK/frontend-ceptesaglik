@@ -41,17 +41,17 @@ class HomeViewModel extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   String get personName {
-    if (_currentPerson != null && _currentPerson!.name.isNotEmpty) {
-      if (_currentPerson!.surname.isNotEmpty) {
-        return '${_currentPerson!.name} ${_currentPerson!.surname}';
-      }
-      return _currentPerson!.name;
-    }
     if (_currentUser != null && _currentUser!.name.isNotEmpty) {
       if (_currentUser!.surname.isNotEmpty) {
         return '${_currentUser!.name} ${_currentUser!.surname}';
       }
       return _currentUser!.name;
+    }
+    if (_currentPerson != null && _currentPerson!.name.isNotEmpty) {
+      if (_currentPerson!.surname.isNotEmpty) {
+        return '${_currentPerson!.name} ${_currentPerson!.surname}';
+      }
+      return _currentPerson!.name;
     }
     return 'Kullanıcı';
   }

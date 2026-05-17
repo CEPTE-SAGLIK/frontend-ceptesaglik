@@ -312,6 +312,8 @@ class _ProfileViewState extends State<ProfileView> {
         return Icons.medication_rounded;
       case '/my-children':
         return Icons.child_care_rounded;
+      case '/family-members':
+        return Icons.group_rounded;
       case '/health-overview':
         return Icons.health_and_safety_rounded;
       default:

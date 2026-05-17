@@ -14,6 +14,7 @@ class ReminderListViewModel extends ChangeNotifier {
   String? _errorMessage;
   List<Reminder> _reminders = [];
   ReminderType? _selectedFilter;
+  AudienceGroup? _audienceFilter;
   String? _userId;
 
   ReminderListViewModel({
@@ -25,10 +26,16 @@ class ReminderListViewModel extends ChangeNotifier {
   ReminderListStatus get status => _status;
   String? get errorMessage => _errorMessage;
   ReminderType? get selectedFilter => _selectedFilter;
+  AudienceGroup? get audienceFilter => _audienceFilter;
 
   List<Reminder> get reminders {
-    if (_selectedFilter == null) return _reminders;
-    return _reminders.where((r) => r.type == _selectedFilter).toList();
+    return _reminders.where((r) {
+      if (_selectedFilter != null && r.type != _selectedFilter) return false;
+      if (_audienceFilter != null && r.audienceGroup != _audienceFilter) {
+        return false;
+      }
+      return true;
+    }).toList();
   }
 
   List<Reminder> get activeReminders =>
@@ -75,6 +82,11 @@ class ReminderListViewModel extends ChangeNotifier {
 
   void setFilter(ReminderType? type) {
     _selectedFilter = type;
+    notifyListeners();
+  }
+
+  void setAudienceFilter(AudienceGroup? group) {
+    _audienceFilter = group;
     notifyListeners();
   }
 

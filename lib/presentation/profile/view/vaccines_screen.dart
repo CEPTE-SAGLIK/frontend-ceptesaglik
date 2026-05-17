@@ -5,17 +5,18 @@ import 'package:health_asistants/core/utils/constants/shadows.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
 import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/data/model/child.dart';
+import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/data/model/vaccine.dart';
+import 'package:health_asistants/presentation/components/add_person_sheet.dart';
 import 'package:health_asistants/presentation/profile/viewmodel/my_vaccines_viewmodel.dart';
 import 'package:health_asistants/presentation/profile/viewmodel/vaccines_viewmodel.dart';
 
-/// Çocuk Aşı Takip Ekranı
+/// Aşı Takip Ekranı
 ///
-/// - Çocuk ekleme / silme
-/// - Yaşa göre otomatik aşı takvimi
-/// - Aşı tamamlama / geri alma
-/// - Manuel aşı ekleme
-/// - Yaklaşan & gecikmiş aşı bildirimleri
+/// Üç sekme: Çocuk / Yetişkin / Yaşlı
+/// - Çocuk: Child tablosu (yaşa göre otomatik aşı takvimi) + çocuk yaşındaki
+///   aile üyeleri (Person) düz aşı listesiyle.
+/// - Yetişkin / Yaşlı: yaş grubuna göre ayrılmış aile üyelerinin aşı listesi.
 class MyVaccinesScreen extends StatefulWidget {
   const MyVaccinesScreen({super.key});
 
@@ -27,10 +28,14 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
     with TickerProviderStateMixin {
   late final TabController _tabController;
 
+  /// Çocuk sekmesinde seçili çocuk-yaşındaki Person id'si.
+  /// `null` ise bir Child (otomatik takvimli) seçili demektir.
+  String? _selectedChildPersonId;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() => setState(() {}));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<VaccinesViewModel>().loadChildren();
@@ -60,22 +65,22 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
           unselectedLabelColor: Colors.white70,
           indicatorColor: Colors.white,
           tabs: const [
-            Tab(icon: Icon(Icons.person_outline, size: 16), text: 'Kişisel'),
-            Tab(
-              icon: Icon(Icons.child_care_outlined, size: 16),
-              text: 'Çocuk',
-            ),
+            Tab(icon: Icon(Icons.child_care_outlined, size: 16), text: 'Çocuk'),
+            Tab(icon: Icon(Icons.person_outline, size: 16), text: 'Yetişkin'),
+            Tab(icon: Icon(Icons.elderly, size: 16), text: 'Yaşlı'),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.person_add_rounded),
-            tooltip: _tabController.index == 0 ? 'Yetişkin Ekle' : 'Çocuk Ekle',
+            icon: Icon(_tabController.index == 0
+                ? Icons.child_care_rounded
+                : Icons.person_add_rounded),
+            tooltip: _tabController.index == 0 ? 'Çocuk Ekle' : 'Kişi Ekle',
             onPressed: () {
               if (_tabController.index == 0) {
-                _showAddAdultDialog(context);
-              } else {
                 _showAddChildDialog(context);
+              } else {
+                _showAddPersonViaSheet(context);
               }
             },
           ),
@@ -84,40 +89,182 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          Consumer<MyVaccinesViewModel>(
-            builder: (ctx, vm, _) => _buildPersonalTab(vm),
+          Consumer2<VaccinesViewModel, MyVaccinesViewModel>(
+            builder: (ctx, cvm, mvm, _) => _buildChildTab(cvm, mvm),
           ),
-          _buildBody(),
+          Consumer<MyVaccinesViewModel>(
+            builder: (ctx, vm, _) => _buildGroupTab(
+              vm: vm,
+              persons: vm.adultPersons,
+              selectedIndex: vm.selectedAdultIndex,
+              onSelect: vm.selectAdult,
+            ),
+          ),
+          Consumer<MyVaccinesViewModel>(
+            builder: (ctx, vm, _) => _buildGroupTab(
+              vm: vm,
+              persons: vm.elderlyPersons,
+              selectedIndex: vm.selectedElderlyIndex,
+              onSelect: vm.selectElderly,
+            ),
+          ),
         ],
       ),
     );
   }
 
   // ─────────────────────────────────────
-  // Body
+  // Çocuk Sekmesi (Child tablosu + çocuk yaşındaki Person'lar)
   // ─────────────────────────────────────
 
-  Widget _buildBody() {
-    if (_viewModel.isLoading) {
+  Widget _buildChildTab(VaccinesViewModel cvm, MyVaccinesViewModel mvm) {
+    if (cvm.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-
-    if (_viewModel.status == VaccineScreenStatus.error) {
+    if (cvm.status == VaccineScreenStatus.error) {
       return _buildErrorState();
     }
 
-    if (!_viewModel.hasChildren) {
+    final children = cvm.children;
+    final childPersons = mvm.childPersons;
+    if (children.isEmpty && childPersons.isEmpty) {
+      // Çocuk yaşındaki Person'lar hâlâ yükleniyorsa boş durumu erken gösterme.
+      if (mvm.status == MyVaccinesStatus.loading ||
+          mvm.status == MyVaccinesStatus.initial) {
+        return const Center(child: CircularProgressIndicator());
+      }
       return _buildEmptyState();
     }
 
+    // Etkin seçim: çocuk yaşındaki bir Person mı yoksa otomatik takvimli Child mi?
+    final bool personIsValid = _selectedChildPersonId != null &&
+        childPersons.any((p) => p.id == _selectedChildPersonId);
+    final String? effectivePersonId = personIsValid
+        ? _selectedChildPersonId
+        : (children.isEmpty && childPersons.isNotEmpty
+            ? childPersons.first.id
+            : null);
+
     return Column(
       children: [
-        // Çocuk seçici (üst kısım)
-        _buildChildSelector(),
-
-        // Aşı takvimi içeriği
-        Expanded(child: _buildScheduleContent()),
+        _buildChildTabSelector(children, childPersons, effectivePersonId, cvm),
+        Expanded(
+          child: effectivePersonId != null
+              ? _buildPersonVaccineListView(
+                  childPersons
+                      .firstWhere((p) => p.id == effectivePersonId),
+                  mvm,
+                )
+              : (cvm.selectedChild != null
+                  ? _buildScheduleContent()
+                  : const SizedBox.shrink()),
+        ),
       ],
+    );
+  }
+
+  /// Çocuk sekmesi seçici — önce Child'lar, sonra çocuk yaşındaki Person'lar.
+  Widget _buildChildTabSelector(
+    List<Child> children,
+    List<Person> childPersons,
+    String? effectivePersonId,
+    VaccinesViewModel cvm,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.cardBackground,
+        border: Border(bottom: BorderSide(color: AppColors.outline, width: 1)),
+      ),
+      child: SizedBox(
+        height: 80,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: [
+            for (final child in children) ...[
+              _buildChildChip(
+                child,
+                effectivePersonId == null &&
+                    child.id == cvm.selectedChild?.id,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+            ],
+            for (final person in childPersons) ...[
+              _buildChildPersonChip(
+                person,
+                effectivePersonId == person.id,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Çocuk yaşındaki Person için seçici çip (düz aşı listesi gösterir).
+  Widget _buildChildPersonChip(Person person, bool isSelected) {
+    return GestureDetector(
+      onTap: () {
+        context.read<MyVaccinesViewModel>().selectChildPerson(person.id);
+        setState(() => _selectedChildPersonId = person.id);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : AppColors.background,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.outlineVariant,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.face_rounded,
+                  color: isSelected
+                      ? AppColors.textOnPrimary
+                      : AppColors.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  person.name,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: isSelected
+                        ? AppColors.textOnPrimary
+                        : AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Aşı listesi',
+              style: TextStyle(
+                fontSize: 11,
+                color: isSelected
+                    ? AppColors.textOnPrimary.withValues(alpha: 0.8)
+                    : AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -182,34 +329,8 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
   }
 
   // ─────────────────────────────────────
-  // Çocuk Seçici (Yatay Kaydırmalı)
+  // Çocuk Çipi (Yatay Kaydırmalı Seçici öğesi)
   // ─────────────────────────────────────
-
-  Widget _buildChildSelector() {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      decoration: const BoxDecoration(
-        color: AppColors.cardBackground,
-        border: Border(bottom: BorderSide(color: AppColors.outline, width: 1)),
-      ),
-      child: SizedBox(
-        height: 80,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: _viewModel.children.length,
-          separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
-          itemBuilder: (context, index) {
-            final child = _viewModel.children[index];
-            final isSelected = child.id == _viewModel.selectedChild?.id;
-            return _buildChildChip(child, isSelected);
-          },
-        ),
-      ),
-    );
-  }
 
   Widget _buildChildChip(Child child, bool isSelected) {
     final overdueCount = child.vaccineSchedule
@@ -218,7 +339,10 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
         .length;
 
     return GestureDetector(
-      onTap: () => _viewModel.selectChild(child.id),
+      onTap: () {
+        _viewModel.selectChild(child.id);
+        setState(() => _selectedChildPersonId = null);
+      },
       onLongPress: () => _showChildOptionsSheet(child),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -522,6 +646,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
+          padding: EdgeInsets.zero,
           initiallyExpanded: !allDone && (isPast || isUpcoming),
           leading: Container(
             padding: const EdgeInsets.all(8),
@@ -567,13 +692,14 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
                   fontSize: 13,
                 ),
               ),
-              Text(
-                'Planlanan: ${_formatDate(schedule.scheduledDate)}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textTertiary,
+              if (!isManual)
+                Text(
+                  'Planlanan: ${_formatDate(schedule.scheduledDate)}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textTertiary,
+                  ),
                 ),
-              ),
             ],
           ),
           children: [
@@ -715,6 +841,18 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
                             color: AppColors.success,
                           ),
                         ),
+                      ] else ...[
+                        const Text(
+                          ' • ',
+                          style: TextStyle(color: AppColors.textTertiary),
+                        ),
+                        Text(
+                          _formatDate(vaccine.date),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: overdue ? AppColors.error : AppColors.textTertiary,
+                          ),
+                        ),
                       ],
                     ],
                   ),
@@ -792,86 +930,131 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
   }
 
   // ─────────────────────────────────────
-  // Kişisel Aşı Sekmesi
+  // Yaş Grubu Sekmesi (Yetişkin / Yaşlı) ve çocuk-Person aşı listesi
   // ─────────────────────────────────────
 
-  Widget _buildPersonalTab(MyVaccinesViewModel vm) {
+  Widget _buildGroupTab({
+    required MyVaccinesViewModel vm,
+    required List<Person> persons,
+    required int selectedIndex,
+    required void Function(String) onSelect,
+  }) {
     if (vm.status == MyVaccinesStatus.loading ||
         vm.status == MyVaccinesStatus.initial) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final selected = vm.selectedAdult;
+    final safeIndex = persons.isEmpty
+        ? 0
+        : selectedIndex.clamp(0, persons.length - 1);
+    final selected = persons.isEmpty ? null : persons[safeIndex];
 
     return Column(
       children: [
-        if (vm.adultPersons.length > 1) _buildAdultSelector(vm),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: vm.loadVaccines,
-            child: ListView(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () => _showAddPersonalVaccineDialog(
-                    context,
-                    personId: selected?.id,
-                    vm: vm,
-                  ),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Aşı Ekle'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primary),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                if (selected == null || selected.vaccines.isEmpty)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.xxl),
-                      child: Column(
-                        children: [
-                          const Icon(
-                            Icons.vaccines_rounded,
-                            size: 56,
-                            color: AppColors.primary,
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          const Text(
-                            'Henüz kişisel aşı kaydı yok',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          const Text(
-                            'Geçmiş veya planlanan aşılarınızı\nyukarıdaki butona ekleyebilirsiniz.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textSecondary,
-                              height: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                  ...selected.vaccines.map((v) => _buildPersonalVaccineItem(v, vm)),
-              ],
-            ),
-          ),
-        ),
+        if (persons.length > 1)
+          _buildPersonSelector(persons, safeIndex, onSelect),
+        Expanded(child: _buildPersonVaccineListView(selected, vm)),
       ],
     );
   }
 
-  Widget _buildAdultSelector(MyVaccinesViewModel vm) {
+  /// Bir kişinin düz aşı listesi (yetişkin / yaşlı / çocuk-Person ortak).
+  Widget _buildPersonVaccineListView(Person? selected, MyVaccinesViewModel vm) {
+    return RefreshIndicator(
+      onRefresh: vm.loadVaccines,
+      child: ListView(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        children: [
+          OutlinedButton.icon(
+            onPressed: () => _showAddPersonalVaccineDialog(
+              context,
+              personId: selected?.id,
+              vm: vm,
+            ),
+            icon: const Icon(Icons.add),
+            label: const Text('Aşı Ekle'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          if (selected == null)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(AppSpacing.xxl),
+                child: Column(
+                  children: [
+                    Icon(Icons.group_outlined,
+                        size: 56, color: AppColors.primary),
+                    SizedBox(height: AppSpacing.md),
+                    Text(
+                      'Bu yaş grubunda kişi yok',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: AppSpacing.sm),
+                    Text(
+                      'Sağ üstteki + ile bu gruba kişi ekleyebilirsiniz.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (selected.vaccines.isEmpty)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(AppSpacing.xxl),
+                child: Column(
+                  children: [
+                    Icon(Icons.vaccines_rounded,
+                        size: 56, color: AppColors.primary),
+                    SizedBox(height: AppSpacing.md),
+                    Text(
+                      'Henüz aşı kaydı yok',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: AppSpacing.sm),
+                    Text(
+                      'Geçmiş veya planlanan aşıları\nyukarıdaki butona ekleyebilirsiniz.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ...selected.vaccines.map((v) => _buildPersonalVaccineItem(v, vm)),
+        ],
+      ),
+    );
+  }
+
+  /// Yatay kişi seçici (yetişkin / yaşlı sekmeleri için).
+  Widget _buildPersonSelector(
+    List<Person> persons,
+    int selectedIndex,
+    void Function(String) onSelect,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
@@ -885,13 +1068,13 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
         height: 48,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          itemCount: vm.adultPersons.length,
+          itemCount: Lambda.length,
           separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
           itemBuilder: (ctx, index) {
-            final person = vm.adultPersons[index];
-            final isSelected = index == vm.selectedAdultIndex;
+            final person = persons[index];
+            final isSelected = index == selectedIndex;
             return GestureDetector(
-              onTap: () => vm.selectAdult(person.id),
+              onTap: () => onSelect(person.id),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(
@@ -1188,51 +1371,15 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
   // DIALOGLAR
   // ═══════════════════════════════════════════════════════════════════
 
-  /// Yetişkin Kişi Ekleme Dialog
-  void _showAddAdultDialog(BuildContext context) {
-    final nameController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.person_add_rounded, color: AppColors.primary),
-            SizedBox(width: 8),
-            Text('Yetişkin Ekle'),
-          ],
-        ),
-        content: TextField(
-          controller: nameController,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(
-            labelText: 'Ad Soyad *',
-            hintText: 'Örn: Ahmet Yılmaz',
-            prefixIcon: Icon(Icons.person_outline),
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('İptal'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final name = nameController.text.trim();
-              if (name.isEmpty) {
-                SnackbarHelper.showError(context, 'Ad Soyad girin');
-                return;
-              }
-              context.read<MyVaccinesViewModel>().addAdultPerson(name);
-              Navigator.pop(ctx);
-            },
-            child: const Text('Ekle'),
-          ),
-        ],
-      ),
-    );
+  /// Kişi Ekleme — ortak AddPersonSheet (doğum tarihi alır).
+  /// Eklenen kişi doğum tarihine göre doğru yaş grubu sekmesinde görünür.
+  Future<void> _showAddPersonViaSheet(BuildContext context) async {
+    final draft = await showAddPersonSheet(context);
+    if (draft == null || !context.mounted) return;
+    final ok = await context.read<MyVaccinesViewModel>().addPerson(draft);
+    if (ok && context.mounted) {
+      SnackbarHelper.showSuccess(context, '${draft.name} başarıyla eklendi');
+    }
   }
 
   /// Çocuk Ekleme Dialog
@@ -1387,8 +1534,9 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
     BabyVaccineSchedule schedule,
   ) {
     final nameController = TextEditingController();
-    final doseController = TextEditingController();
+    final doseController = TextEditingController(text: '1. Doz');
     VaccineStatus initialStatus = VaccineStatus.pending;
+    DateTime selectedDate = schedule.scheduledDate;
 
     showDialog(
       context: context,
@@ -1417,6 +1565,35 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.calendar_today_rounded,
+                    color: AppColors.primary,
+                  ),
+                  title: const Text('Tarih'),
+                  subtitle: Text(
+                    _formatDate(selectedDate),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.edit_calendar_rounded),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: ctx,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+                      helpText: 'Aşı tarihini seçin',
+                    );
+                    if (picked != null) {
+                      setDialogState(() => selectedDate = picked);
+                    }
+                  },
+                ),
+                const SizedBox(height: AppSpacing.sm),
                 Wrap(
                   spacing: AppSpacing.sm,
                   crossAxisAlignment: WrapCrossAlignment.center,
@@ -1461,11 +1638,11 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
                 final vaccine = Vaccine(
                   id: '',
                   name: name,
-                  date: schedule.scheduledDate,
+                  date: selectedDate,
                   dose: dose,
                   status: initialStatus,
                   completedDate: initialStatus == VaccineStatus.completed
-                      ? DateTime.now()
+                      ? selectedDate
                       : null,
                 );
                 _viewModel.addVaccineToSchedule(schedule.id, vaccine);

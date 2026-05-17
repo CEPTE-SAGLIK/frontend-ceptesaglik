@@ -31,6 +31,7 @@ import 'package:health_asistants/presentation/record/viewmodel/medicine_record_v
 import 'package:health_asistants/presentation/calendar/viewmodel/calendar_viewmodel.dart';
 import 'package:health_asistants/presentation/profile/viewmodel/vaccines_viewmodel.dart';
 import 'package:health_asistants/presentation/profile/viewmodel/family_viewmodel.dart';
+import 'package:health_asistants/presentation/profile/viewmodel/family_members_viewmodel.dart';
 import 'package:health_asistants/presentation/profile/viewmodel/my_vaccines_viewmodel.dart';
 import 'package:health_asistants/presentation/home/viewmodel/gemini_viewmodel.dart';
 
@@ -267,6 +268,14 @@ class MyApp extends StatelessWidget {
           ),
           update: (_, __, ___, vm) => vm!,
         ),
+        // Senin branch'inden gelen FamilyMembersViewModel eklendi
+        ChangeNotifierProxyProvider<UserRepository, FamilyMembersViewModel>(
+          create: (ctx) => FamilyMembersViewModel(
+            userRepository: ctx.read<UserRepository>(),
+          ),
+          update: (_, __, vm) => vm!,
+        ),
+        // Main branch'indeki temiz alt alta görünüm formatı korundu
         ChangeNotifierProxyProvider3<
           VaccineRepository,
           UserRepository,

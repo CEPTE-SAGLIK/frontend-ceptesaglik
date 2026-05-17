@@ -5,6 +5,7 @@ import 'package:health_asistants/presentation/components/custom_selector_field.d
 
 // Enum yapısını buraya taşıdık, böylece bileşenle birlikte taşınır.
 enum Frequency {
+  noRepeat("Tekrarı Yok"),
   onceDaily("Günde 1 kere"),
   twiceDaily("Günde 2 kere"),
   onceWeekly("Haftada 1 kere"),

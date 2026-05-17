@@ -122,6 +122,9 @@ class MedicineRepository extends BaseRepository {
   /// Backend RepeatType: None=0, Daily=1, Weekly=2, Monthly=3
   int _frequencyToRepeatType(FrequencyType type) {
     switch (type) {
+      case FrequencyType.none:
+      case FrequencyType.custom:
+        return 0;
       case FrequencyType.daily:
       case FrequencyType.everyOtherDay:
         return 1;
@@ -129,8 +132,17 @@ class MedicineRepository extends BaseRepository {
         return 2;
       case FrequencyType.monthly:
         return 3;
-      case FrequencyType.custom:
+    }
+  }
+
+  int _audienceToInt(AudienceGroup group) {
+    switch (group) {
+      case AudienceGroup.adult:
         return 0;
+      case AudienceGroup.elderly:
+        return 1;
+      case AudienceGroup.child:
+        return 2;
     }
   }
 
@@ -148,6 +160,9 @@ class MedicineRepository extends BaseRepository {
       'StartDate': medicine.startDate.toIso8601String(),
       'EndDate': medicine.endDate?.toIso8601String(),
       'RepeatType': _frequencyToRepeatType(medicine.frequencyType),
+      'AudienceGroup': _audienceToInt(medicine.audienceGroup),
+      'AudienceBirthDate': medicine.audienceBirthDate?.toIso8601String(),
+      if (medicine.personId != null) 'PersonId': medicine.personId,
     };
   }
 }

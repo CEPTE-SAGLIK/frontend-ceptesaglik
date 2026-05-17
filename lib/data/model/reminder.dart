@@ -1,5 +1,6 @@
 enum ReminderType { medicine, vaccine, appointment, custom }
 enum RepeatType { none, daily, weekly, monthly }
+enum AudienceGroup { adult, elderly, child }
 
 class Reminder {
   final String id;
@@ -9,9 +10,14 @@ class Reminder {
   final ReminderType type;
   final DateTime dateTime;
   final RepeatType repeatType;
+  final AudienceGroup audienceGroup; // Yetişkin / Yaşlı / Çocuk
+  final DateTime? audienceBirthDate; // Hedef kişinin doğum tarihi (yaş grubu bundan türetilir)
   final bool isActive;
   final String? relatedItemId; // İlaç veya aşı ID'si
   final DateTime createdAt;
+  /// Hangi aile üyesine ait (null = hesap sahibinin kendisi).
+  /// Backend'deki Reminder.PersonId alanına karşılık gelir.
+  final String? targetPersonId;
 
   Reminder({
     required this.id,
@@ -21,9 +27,12 @@ class Reminder {
     required this.type,
     required this.dateTime,
     this.repeatType = RepeatType.none,
+    this.audienceGroup = AudienceGroup.adult,
+    this.audienceBirthDate,
     this.isActive = true,
     this.relatedItemId,
     required this.createdAt,
+    this.targetPersonId,
   });
 
   Reminder copyWith({
@@ -34,9 +43,12 @@ class Reminder {
     ReminderType? type,
     DateTime? dateTime,
     RepeatType? repeatType,
+    AudienceGroup? audienceGroup,
+    DateTime? audienceBirthDate,
     bool? isActive,
     String? relatedItemId,
     DateTime? createdAt,
+    String? targetPersonId,
   }) {
     return Reminder(
       id: id ?? this.id,
@@ -46,9 +58,12 @@ class Reminder {
       type: type ?? this.type,
       dateTime: dateTime ?? this.dateTime,
       repeatType: repeatType ?? this.repeatType,
+      audienceGroup: audienceGroup ?? this.audienceGroup,
+      audienceBirthDate: audienceBirthDate ?? this.audienceBirthDate,
       isActive: isActive ?? this.isActive,
       relatedItemId: relatedItemId ?? this.relatedItemId,
       createdAt: createdAt ?? this.createdAt,
+      targetPersonId: targetPersonId ?? this.targetPersonId,
     );
   }
 
@@ -76,9 +91,18 @@ class Reminder {
         (e) => e.name == (json['repeatType'] as String? ?? '').toLowerCase(),
         orElse: () => RepeatType.none,
       ),
+      audienceGroup: AudienceGroup.values.firstWhere(
+        (e) => e.name == (json['audienceGroup'] as String? ?? '').toLowerCase(),
+        orElse: () => AudienceGroup.adult,
+      ),
+      audienceBirthDate: switch (json['audienceBirthDate'] ?? json['AudienceBirthDate']) {
+        final String s => DateTime.tryParse(s),
+        _ => null,
+      },
       isActive: json['isActive'] as bool? ?? true,
       relatedItemId: (json['relatedItemId'] ?? json['medicineId'] ?? json['vaccineId']) as String?,
       createdAt: created,
+      targetPersonId: (json['targetPersonId'] ?? json['TargetPersonId']) as String?,
     );
   }
 
@@ -91,9 +115,12 @@ class Reminder {
       'type': type.name,
       'dateTime': dateTime.toIso8601String(),
       'repeatType': repeatType.name,
+      'audienceGroup': audienceGroup.name,
+      'audienceBirthDate': audienceBirthDate?.toIso8601String(),
       'isActive': isActive,
       'relatedItemId': relatedItemId,
       'createdAt': createdAt.toIso8601String(),
+      if (targetPersonId != null) 'targetPersonId': targetPersonId,
     };
   }
 }

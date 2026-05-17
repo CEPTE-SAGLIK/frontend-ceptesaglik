@@ -7,7 +7,8 @@ import 'package:health_asistants/data/repository/medicine_repository.dart';
 import 'package:health_asistants/data/repository/reminder_repository.dart';
 import 'package:health_asistants/data/repository/user_repository.dart';
 import 'package:health_asistants/data/repository/vaccine_repository.dart';
-import 'package:health_asistants/core/utils/audience_helper.dart';
+import 'package:health_asistants/core/utils/audience_helper.dart'; // Yaş grubu hesaplama için korundu
+import 'package:health_asistants/core/services/notification_service.dart'; // Bildirim servisi için korundu
 import 'package:health_asistants/core/utils/constants/colors.dart';
 
 /// Hatırlatma ekleme durumu
@@ -40,10 +41,10 @@ class AddReminderViewModel extends ChangeNotifier {
     UserRepository? userRepository,
     MedicineRepository? medicineRepository,
     VaccineRepository? vaccineRepository,
-  })  : _reminderRepository = reminderRepository ?? ReminderRepository(),
-        _userRepository = userRepository,
-        _medicineRepository = medicineRepository,
-        _vaccineRepository = vaccineRepository;
+  }) : _reminderRepository = reminderRepository ?? ReminderRepository(),
+       _userRepository = userRepository,
+       _medicineRepository = medicineRepository,
+       _vaccineRepository = vaccineRepository;
 
   AddReminderStatus _status = AddReminderStatus.initial;
   String? _errorMessage;
@@ -271,6 +272,7 @@ class AddReminderViewModel extends ChangeNotifier {
   }
 
   /// [draft] AddPersonSheet'ten gelen kişi (id/userId boş, doğum tarihi dolu).
+  /// Ekran koduyla derleme hatası oluşmaması için senin esnek yapın korundu.
   Future<Person?> addPerson(Person draft) async {
     if (_userRepository == null) return null;
     final result = await _userRepository.addFamilyMember(draft);
@@ -291,8 +293,13 @@ class AddReminderViewModel extends ChangeNotifier {
 
   /// Hatırlatmayı kaydet
   Future<Reminder?> saveReminder() async {
-    if (!isFormValid) {
-      _errorMessage = 'Lütfen tüm alanları doldurun';
+    if (_title.isEmpty) {
+      _errorMessage = 'Lütfen bir başlık girin';
+      notifyListeners();
+      return null;
+    }
+    if (_selectedTime == null) {
+      _errorMessage = 'Lütfen bir saat seçin';
       notifyListeners();
       return null;
     }
@@ -302,7 +309,11 @@ class AddReminderViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      if (_personId == null && _userRepository != null) {
+      // Zaten yüklü kişiyi kullan, yoksa backend'den al
+      if (_personId == null || _personId!.isEmpty) {
+        _personId = _selfPerson?.id ?? _selectedPerson?.id;
+      }
+      if ((_personId == null || _personId!.isEmpty) && _userRepository != null) {
         final userResult = await _userRepository.getCurrentUser();
         if (userResult.isSuccess && userResult.data != null) {
           _personId = userResult.data!.id;
@@ -326,14 +337,13 @@ class AddReminderViewModel extends ChangeNotifier {
       );
 
       // Seçili kişi self değilse başlığa isim ön-eki ekle
-      final isSelf = _selectedPerson == null ||
-          _selectedPerson!.id == _selfPerson?.id;
+      final isSelf =
+          _selectedPerson == null || _selectedPerson!.id == _selfPerson?.id;
       final String finalTitle;
       if (!isSelf) {
         final personName =
             '${_selectedPerson!.name} ${_selectedPerson!.surname}'.trim();
-        finalTitle =
-            personName.isNotEmpty ? '$personName — $_title' : _title;
+        finalTitle = personName.isNotEmpty ? '$personName — $_title' : _title;
       } else {
         finalTitle = _title;
       }
@@ -449,12 +459,20 @@ class AddReminderViewModel extends ChangeNotifier {
       }
 
       // Repository'ye kaydet
+      print("Saving reminder: ${reminder.toJson()}");
       final result = await _reminderRepository.create(reminder);
+      print("Save result isSuccess: ${result.isSuccess}, data: ${result.data?.toJson()}");
       if (!result.isSuccess) {
         _status = AddReminderStatus.error;
         _errorMessage = result.error ?? 'Hatırlatma kaydedilemedi';
         notifyListeners();
         return null;
+      }
+
+      if (result.data != null) {
+        print("Scheduling notifications for reminder...");
+        await NotificationService().scheduleReminderNotifications(result.data!);
+        print("Done scheduling");
       }
 
       _status = AddReminderStatus.saved;

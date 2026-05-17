@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Klavye kontrolü için
+import 'package:flutter/services.dart';
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/presentation/onboarding/viewmodel/profile_entrance_viewmodel.dart';
 import 'package:provider/provider.dart';
 // Renkler ve Sabitler
@@ -467,9 +468,7 @@ class ProfileEntranceScreen extends StatelessWidget {
     if (success && context.mounted) {
       AppRoutes.clearAndPush(context, AppRoutes.main);
     } else if (viewModel.errorMessage != null && context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(viewModel.errorMessage!)));
+      SnackbarHelper.showError(context, viewModel.errorMessage!);
     }
   }
 }

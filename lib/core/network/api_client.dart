@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:http/http.dart' as http;
 
 class ApiClient {
-  //static const String baseUrl = 'http://192.168.1.151:5105';
-  static const String baseUrl = 'http://10.0.2.2:5105';
+  static const String baseUrl = 'http://192.168.1.151:5105';
+  static const Duration _timeout = Duration(seconds: 10);
   String? _authToken;
   String? _refreshToken;
 
@@ -15,25 +18,33 @@ class ApiClient {
   void setRefreshToken(String? token) => _refreshToken = token;
 
   Map<String, String> get _headers => {
-    'Content-Type': 'application/json',
-    if (_authToken != null) 'Authorization': 'Bearer $_authToken',
-  };
+        'Content-Type': 'application/json',
+        if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+      };
 
-  /// Refresh token ile yeni access token alır. Başarılıysa true döner.
+  Future<bool> _hasConnection() async {
+    final result = await Connectivity().checkConnectivity();
+    return !result.contains(ConnectivityResult.none);
+  }
+
   Future<bool> _tryRefreshToken() async {
     if (_refreshToken == null) return false;
     try {
       final uri = Uri.parse('$baseUrl${ApiEndpoints.refresh}');
-      final response = await http.post(
-        uri,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'refreshToken': _refreshToken}),
-      );
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'refreshToken': _refreshToken}),
+          )
+          .timeout(_timeout);
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final inner = data['data'] ?? data;
-        final newToken = inner['token'] ?? inner['Token'] ??
-            inner['accessToken'] ?? inner['AccessToken'];
+        final newToken = inner['token'] ??
+            inner['Token'] ??
+            inner['accessToken'] ??
+            inner['AccessToken'];
         if (newToken != null) {
           _authToken = newToken.toString();
           final newRefresh = inner['refreshToken'] ?? inner['RefreshToken'];
@@ -45,83 +56,126 @@ class ApiClient {
     return false;
   }
 
-  /// GET isteği
   Future<ApiResponse<T>> get<T>(
     String endpoint, {
     Map<String, String>? queryParams,
     T Function(dynamic)? fromJson,
   }) async {
+    if (!await _hasConnection()) {
+      return ApiResponse.error(
+          'İnternet bağlantısı yok. Lütfen bağlantınızı kontrol edip tekrar deneyin.');
+    }
     try {
       final uri = Uri.parse('$baseUrl$endpoint')
           .replace(queryParameters: queryParams);
-      var response = await http.get(uri, headers: _headers);
+      var response = await http.get(uri, headers: _headers).timeout(_timeout);
       if (response.statusCode == 401 && await _tryRefreshToken()) {
-        response = await http.get(uri, headers: _headers);
+        response = await http.get(uri, headers: _headers).timeout(_timeout);
       }
       return _handleResponse(response, fromJson);
+    } on SocketException {
+      return ApiResponse.error(
+          'İnternet bağlantısı yok. Lütfen bağlantınızı kontrol edip tekrar deneyin.');
+    } on TimeoutException {
+      return ApiResponse.error(
+          'Bağlantı zaman aşımına uğradı. Lütfen tekrar deneyin.');
     } catch (e) {
-      return ApiResponse.error('Bağlantı hatası: $e');
+      return ApiResponse.error('Bağlantı hatası. Lütfen tekrar deneyin.');
     }
   }
 
-  /// POST isteği
   Future<ApiResponse<T>> post<T>(
     String endpoint, {
     Object? body,
     T Function(dynamic)? fromJson,
   }) async {
+    if (!await _hasConnection()) {
+      return ApiResponse.error(
+          'İnternet bağlantısı yok. Lütfen bağlantınızı kontrol edip tekrar deneyin.');
+    }
     try {
       final uri = Uri.parse('$baseUrl$endpoint');
       final encoded = body != null ? jsonEncode(body) : null;
-      var response =
-          await http.post(uri, headers: _headers, body: encoded);
+      var response = await http
+          .post(uri, headers: _headers, body: encoded)
+          .timeout(_timeout);
       if (response.statusCode == 401 && await _tryRefreshToken()) {
-        response = await http.post(uri, headers: _headers, body: encoded);
+        response = await http
+            .post(uri, headers: _headers, body: encoded)
+            .timeout(_timeout);
       }
       return _handleResponse(response, fromJson);
+    } on SocketException {
+      return ApiResponse.error(
+          'İnternet bağlantısı yok. Lütfen bağlantınızı kontrol edip tekrar deneyin.');
+    } on TimeoutException {
+      return ApiResponse.error(
+          'Bağlantı zaman aşımına uğradı. Lütfen tekrar deneyin.');
     } catch (e) {
-      return ApiResponse.error('Bağlantı hatası: $e');
+      return ApiResponse.error('Bağlantı hatası. Lütfen tekrar deneyin.');
     }
   }
 
-  /// PUT isteği
   Future<ApiResponse<T>> put<T>(
     String endpoint, {
     Object? body,
     T Function(dynamic)? fromJson,
   }) async {
+    if (!await _hasConnection()) {
+      return ApiResponse.error(
+          'İnternet bağlantısı yok. Lütfen bağlantınızı kontrol edip tekrar deneyin.');
+    }
     try {
       final uri = Uri.parse('$baseUrl$endpoint');
       final encoded = body != null ? jsonEncode(body) : null;
-      var response =
-          await http.put(uri, headers: _headers, body: encoded);
+      var response = await http
+          .put(uri, headers: _headers, body: encoded)
+          .timeout(_timeout);
       if (response.statusCode == 401 && await _tryRefreshToken()) {
-        response = await http.put(uri, headers: _headers, body: encoded);
+        response = await http
+            .put(uri, headers: _headers, body: encoded)
+            .timeout(_timeout);
       }
       return _handleResponse(response, fromJson);
+    } on SocketException {
+      return ApiResponse.error(
+          'İnternet bağlantısı yok. Lütfen bağlantınızı kontrol edip tekrar deneyin.');
+    } on TimeoutException {
+      return ApiResponse.error(
+          'Bağlantı zaman aşımına uğradı. Lütfen tekrar deneyin.');
     } catch (e) {
-      return ApiResponse.error('Bağlantı hatası: $e');
+      return ApiResponse.error('Bağlantı hatası. Lütfen tekrar deneyin.');
     }
   }
 
-  /// DELETE isteği
   Future<ApiResponse<T>> delete<T>(
     String endpoint, {
     T Function(dynamic)? fromJson,
   }) async {
+    if (!await _hasConnection()) {
+      return ApiResponse.error(
+          'İnternet bağlantısı yok. Lütfen bağlantınızı kontrol edip tekrar deneyin.');
+    }
     try {
       final uri = Uri.parse('$baseUrl$endpoint');
-      var response = await http.delete(uri, headers: _headers);
+      var response =
+          await http.delete(uri, headers: _headers).timeout(_timeout);
       if (response.statusCode == 401 && await _tryRefreshToken()) {
-        response = await http.delete(uri, headers: _headers);
+        response =
+            await http.delete(uri, headers: _headers).timeout(_timeout);
       }
       return _handleResponse(response, fromJson);
+    } on SocketException {
+      return ApiResponse.error(
+          'İnternet bağlantısı yok. Lütfen bağlantınızı kontrol edip tekrar deneyin.');
+    } on TimeoutException {
+      return ApiResponse.error(
+          'Bağlantı zaman aşımına uğradı. Lütfen tekrar deneyin.');
     } catch (e) {
-      return ApiResponse.error('Bağlantı hatası: $e');
+      return ApiResponse.error('Bağlantı hatası. Lütfen tekrar deneyin.');
     }
   }
 
-  /// Ortak response handler
   ApiResponse<T> _handleResponse<T>(
     http.Response response,
     T Function(dynamic)? fromJson,
@@ -131,25 +185,30 @@ class ApiClient {
         return ApiResponse.success(null as T);
       }
       final data = jsonDecode(response.body);
-      return ApiResponse.success(fromJson != null ? fromJson(data) : data as T);
+      return ApiResponse.success(
+          fromJson != null ? fromJson(data) : data as T);
     } else if (response.statusCode == 401) {
-      return ApiResponse.error('Oturum süresi doldu. Lütfen yeniden giriş yapın.');
+      return ApiResponse.error(
+          'Oturum süresi doldu. Lütfen yeniden giriş yapın.');
+    } else if (response.statusCode >= 500) {
+      return ApiResponse.error(
+          'Sunucuda bir sorun oluştu. Lütfen daha sonra tekrar deneyin.');
     } else {
       try {
         final body = jsonDecode(response.body);
+        final msg = body['message'] ??
+            body['Message'] ??
+            body['error'] ??
+            body['Error'];
         return ApiResponse.error(
-          body['message'] ?? body['Message'] ??
-              body['error'] ?? body['Error'] ??
-              'İstek başarısız: ${response.statusCode}',
-        );
+            msg?.toString() ?? 'İşlem başarısız. Lütfen tekrar deneyin.');
       } catch (_) {
-        return ApiResponse.error('İstek başarısız: ${response.statusCode}');
+        return ApiResponse.error('İşlem başarısız. Lütfen tekrar deneyin.');
       }
     }
   }
 }
 
-/// API yanıt wrapper'ı
 class ApiResponse<T> {
   final T? data;
   final String? errorMessage;
@@ -166,7 +225,6 @@ class ApiResponse<T> {
   }
 }
 
-/// API endpoint sabitleri
 class ApiEndpoints {
   // Auth
   static const String login = '/api/Auth/login';
@@ -213,7 +271,9 @@ class ApiEndpoints {
   static String childVaccines(String childId) =>
       '/api/children/$childId/vaccines';
 
-  // AI Assistant
+  // Chat
+  static const String chat = '/api/Chat';
+
   static const String aiAnalyze = '/api/ai/analyze';
 
   // Notifications

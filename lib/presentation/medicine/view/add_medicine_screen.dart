@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/core/utils/theme/text_styles.dart';
 import 'package:health_asistants/data/model/medicine.dart';
 import 'package:health_asistants/data/model/person.dart';
@@ -398,15 +399,12 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
       bool isEdit) async {
     final medicine = await viewModel.saveMedicine();
     if (medicine != null && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isEdit
-                ? '${medicine.name} başarıyla güncellendi'
-                : '${medicine.name} başarıyla kaydedildi',
-          ),
-          backgroundColor: AppColors.statusSuccess,
-        ),
+      // Main'deki Helper yapısı korundu + isEdit durumuna göre dinamik mesaj eklendi
+      SnackbarHelper.showSuccess(
+        context,
+        isEdit
+            ? '${medicine.name} başarıyla güncellendi'
+            : '${medicine.name} başarıyla kaydedildi',
       );
       Navigator.pop(context, medicine);
     }

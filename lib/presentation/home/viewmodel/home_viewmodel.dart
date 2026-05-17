@@ -191,6 +191,15 @@ class HomeViewModel extends ChangeNotifier {
     if (result.isSuccess) await loadHomeData();
   }
 
+  Future<bool> updateReminder(Reminder reminder) async {
+    final result = await _reminderRepository.update(reminder);
+    if (result.isSuccess) {
+      await loadHomeData();
+      return true;
+    }
+    return false;
+  }
+
   Future<bool> deleteReminder(String id) async {
     final result = await _reminderRepository.delete(id);
     if (result.isSuccess) {

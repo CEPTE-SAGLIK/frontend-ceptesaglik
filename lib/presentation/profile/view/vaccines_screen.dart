@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/shadows.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/data/model/child.dart';
 import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/data/model/vaccine.dart';
@@ -645,6 +646,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
+          padding: EdgeInsets.zero,
           initiallyExpanded: !allDone && (isPast || isUpcoming),
           leading: Container(
             padding: const EdgeInsets.all(8),
@@ -1066,7 +1068,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
         height: 48,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          itemCount: persons.length,
+          itemCount: Lambda.length,
           separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
           itemBuilder: (ctx, index) {
             final person = persons[index];
@@ -1234,11 +1236,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
     required MyVaccinesViewModel vm,
   }) {
     if (personId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Kişisel profil bulunamadı. Profil ekranından profilinizi oluşturun.'),
-        ),
-      );
+      SnackbarHelper.showError(context, 'Kişisel profil bulunamadı. Profil ekranından profilinizi oluşturun.');
       return;
     }
 
@@ -1323,9 +1321,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
               onPressed: () {
                 final name = nameController.text.trim();
                 if (name.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Aşı adını girin')),
-                  );
+                  SnackbarHelper.showError(context, 'Aşı adını girin');
                   return;
                 }
                 vm.addNewVaccine(
@@ -1382,9 +1378,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
     if (draft == null || !context.mounted) return;
     final ok = await context.read<MyVaccinesViewModel>().addPerson(draft);
     if (ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${draft.name} eklendi')),
-      );
+      SnackbarHelper.showSuccess(context, '${draft.name} başarıyla eklendi');
     }
   }
 
@@ -1515,9 +1509,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
               onPressed: () {
                 final name = nameController.text.trim();
                 if (name.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Çocuğun adını girin')),
-                  );
+                  SnackbarHelper.showError(context, 'Çocuğun adını girin');
                   return;
                 }
 
@@ -1640,9 +1632,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
                 final name = nameController.text.trim();
                 final dose = doseController.text.trim();
                 if (name.isEmpty || dose.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Aşı adı ve doz zorunludur')),
-                  );
+                  SnackbarHelper.showError(context, 'Aşı adı ve doz zorunludur');
                   return;
                 }
                 final vaccine = Vaccine(
@@ -1729,9 +1719,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
               onPressed: () {
                 final name = nameController.text.trim();
                 if (name.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Aşı adını girin')),
-                  );
+                  SnackbarHelper.showError(context, 'Aşı adını girin');
                   return;
                 }
                 final isCompleted = !selectedDate.isAfter(DateTime.now());

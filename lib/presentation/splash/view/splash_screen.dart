@@ -1,8 +1,11 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:health_asistants/core/services/notification_service.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/images.dart';
 import 'package:health_asistants/core/utils/navigation/app_routes.dart';
+import 'package:health_asistants/data/repository/reminder_repository.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -72,6 +75,8 @@ class _SplashScreenState extends State<SplashScreen>
           prefs.getBool('profile_completed_$userId') ?? false;
 
       if (profileCompleted) {
+        // Otomatik girişte bildirimleri yeniden planla
+        _rescheduleNotifications(userId);
         AppRoutes.clearAndPush(context, AppRoutes.main);
       } else {
         AppRoutes.clearAndPush(context, AppRoutes.profileEntrance);
@@ -80,6 +85,11 @@ class _SplashScreenState extends State<SplashScreen>
       // Onboarding görülmüş ama giriş yapılmamış → login
       AppRoutes.clearAndPush(context, AppRoutes.login);
     }
+  }
+
+  void _rescheduleNotifications(String userId) {
+    final reminderRepository = context.read<ReminderRepository>();
+    NotificationService().rescheduleAllNotifications(userId, reminderRepository);
   }
 
   @override

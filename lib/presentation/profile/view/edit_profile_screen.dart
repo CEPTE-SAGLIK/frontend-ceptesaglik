@@ -2,6 +2,7 @@
 import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
 import 'package:health_asistants/core/utils/constants/spacing.dart';
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/presentation/profile/viewmodel/profile_viewmodel.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -229,24 +230,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (!mounted) return;
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profil güncellendi'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        SnackbarHelper.showSuccess(context, 'Profil güncellendi');
         Navigator.pop(context);
       } else {
         final error = context.read<ProfileViewModel>().errorMessage ?? 'Güncelleme başarısız';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error), backgroundColor: Colors.red),
-        );
+        SnackbarHelper.showError(context, error);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red),
-        );
+        SnackbarHelper.showError(context, 'Bir hata oluştu. Lütfen tekrar deneyin.');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

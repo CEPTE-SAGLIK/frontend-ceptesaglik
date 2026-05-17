@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/data/model/allergy.dart';
 import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/data/model/reminder.dart' show AudienceGroup;
@@ -23,6 +24,134 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
     });
   }
 
+  Future<void> _showEditAllergySheet(
+      BuildContext context, Allergy allergy) async {
+    final nameController = TextEditingController(text: allergy.name);
+    AllergyLevel selectedLevel = allergy.level;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: 24,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Alerjiyi Düzenle',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Alerji Adı *',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: nameController,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.grey[100],
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Şiddet',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<AllergyLevel>(
+                        value: selectedLevel,
+                        isExpanded: true,
+                        items: AllergyLevel.values
+                            .map((l) => DropdownMenuItem(
+                                value: l, child: Text(l.label)))
+                            .toList(),
+                        onChanged: (v) =>
+                            setModalState(() => selectedLevel = v!),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal,
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+                      onPressed: () async {
+                        if (nameController.text.trim().isEmpty) {
+                          SnackbarHelper.showError(ctx, 'Lütfen alerji adını girin');
+                          return;
+                        }
+                        final success = await context
+                            .read<AllergyViewModel>()
+                            .updateAllergy(
+                              allergy.id,
+                              nameController.text.trim(),
+                              level: selectedLevel,
+                            );
+                        if (success && ctx.mounted) {
+                          Navigator.pop(ctx);
+                          if (context.mounted) {
+                            SnackbarHelper.showSuccess(context, 'Alerji güncellendi');
+                          }
+                        }
+                      },
+                      child: const Text(
+                        'Güncelle',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   void _showDeleteConfirmation(BuildContext context, dynamic id, String name) {
     showDialog(
       context: context,
@@ -41,12 +170,7 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
                   await context.read<AllergyViewModel>().deleteAllergy(id);
               if (success && context.mounted) {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Alerji silindi'),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
+                SnackbarHelper.showSuccess(context, 'Alerji silindi');
               }
             },
             child: const Text('Sil', style: TextStyle(color: Colors.white)),
@@ -232,11 +356,7 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
                       ),
                       onPressed: () async {
                         if (nameController.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            const SnackBar(
-                                content:
-                                    Text('Lütfen alerji adını girin')),
-                          );
+                          SnackbarHelper.showError(ctx, 'Lütfen alerji adını girin');
                           return;
                         }
                         final success = await context
@@ -358,16 +478,29 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
                                 ),
                               ],
                             ),
-                            trailing: IconButton(
-                              icon: const Icon(
-                                Icons.delete_outline,
-                                color: Colors.redAccent,
-                              ),
-                              onPressed: () => _showDeleteConfirmation(
-                                context,
-                                allergy.id,
-                                allergy.name,
-                              ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    color: Colors.teal,
+                                  ),
+                                  onPressed: () =>
+                                      _showEditAllergySheet(context, allergy),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.redAccent,
+                                  ),
+                                  onPressed: () => _showDeleteConfirmation(
+                                    context,
+                                    allergy.id,
+                                    allergy.name,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         );

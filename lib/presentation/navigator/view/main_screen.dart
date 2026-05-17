@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
-import 'package:health_asistants/core/utils/constants/spacing.dart';
 import 'package:health_asistants/core/utils/theme/text_styles.dart';
+import 'package:health_asistants/presentation/home/view/gemini_assistant_sheet.dart';
 import 'package:health_asistants/presentation/map/view/nearby_facilities_screen.dart';
 
 import 'package:health_asistants/presentation/calendar/view/calendar_screen.dart';
@@ -40,26 +40,9 @@ class MainScreen extends StatelessWidget {
       case NavigationTab.calendar:
         return const CalendarScreen();
       case NavigationTab.aiAssistant:
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.auto_fix_high,
-                size: AppSpacing.iconXxl,
-                color: AppColors.brandPink,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Text('AI Asistanı', style: AppTextStyles.headingLarge),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'Yakında...',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
+        return const GeminiAssistantSheet(
+          showCloseButton: false,
+          isBottomSheet: false,
         );
       case NavigationTab.map:
         return const NearbyFacilitiesScreen();

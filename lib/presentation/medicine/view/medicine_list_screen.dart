@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:health_asistants/data/model/medicine.dart';
 import 'package:health_asistants/core/utils/navigation/app_routes.dart';
+import 'package:health_asistants/presentation/components/error_state_widget.dart'; // main'den gelen yararlı widget
 import 'package:health_asistants/presentation/medicine/viewmodel/medicine_list_viewmodel.dart';
 import 'package:health_asistants/presentation/components/audience_filter_bar.dart';
 import 'package:health_asistants/core/utils/constants/colors.dart';
@@ -84,24 +85,9 @@ class _MedicineListScreenState extends State<MedicineListScreen> {
                 }
 
                 if (viewModel.status == MedicineListStatus.error) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          size: 48,
-                          color: Colors.red,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(viewModel.errorMessage ?? 'Bir hata oluştu'),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: viewModel.loadMedicines,
-                          child: const Text('Tekrar Dene'),
-                        ),
-                      ],
-                    ),
+                  return ErrorStateWidget.fromMessage(
+                    viewModel.errorMessage ?? 'Bir hata oluştu',
+                    onRetry: viewModel.loadMedicines,
                   );
                 }
 
@@ -183,16 +169,18 @@ class _MedicineListScreenState extends State<MedicineListScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => _MedicineDetailSheet(medicine: medicine),
+      builder: (ctx) => _MedicineDetailSheet(
+        medicine: medicine,
+      ),
     );
   }
 
+  // Senin temiz ve hatasız çalışan AddMedicineScreen yönlendirmen korundu
   Future<void> _openAddMedicine(BuildContext context) async {
     await AppRoutes.push(context, AppRoutes.addMedicine);
     if (!context.mounted) return;
     context.read<MedicineListViewModel>().loadMedicines();
   }
-
 }
 
 class _MedicineCard extends StatelessWidget {
@@ -405,14 +393,13 @@ class _MedicineDetailSheet extends StatelessWidget {
 
               const SizedBox(height: 24),
 
-              // Düzenle butonu
+              // Düzenle butonu - Senin temiz kurgun (AddMedicineScreen'e yönlendirip güncelleme sonrası listeyi yeniler)
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () {
                     final listScreenContext = context;
                     Navigator.pop(context);
-                    // Sheet kapandıktan sonra düzenleme ekranını aç
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (!listScreenContext.mounted) return;
                       AppRoutes.push(

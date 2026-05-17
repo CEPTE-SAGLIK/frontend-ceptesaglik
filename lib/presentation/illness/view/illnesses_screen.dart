@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:health_asistants/core/utils/snackbar_helper.dart';
 import 'package:health_asistants/data/model/illness.dart';
 import 'package:health_asistants/data/model/person.dart';
 import 'package:health_asistants/presentation/illness/viewmodel/illness_viewmodel.dart';
@@ -63,17 +64,96 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
                   await context.read<IllnessViewModel>().deleteIllness(id);
               if (success && context.mounted) {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Kayıt başarıyla silindi'),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
+                SnackbarHelper.showSuccess(context, 'Kayıt başarıyla silindi');
               }
             },
             child: const Text('Sil', style: TextStyle(color: Colors.white)),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showEditIllnessDialog(BuildContext context, Illness illness) {
+    final nameController = TextEditingController(text: illness.name);
+    final notesController = TextEditingController(text: illness.doctorNotes ?? '');
+    IllnessStatus selectedStatus = illness.status;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('Hastalığı Düzenle',
+              style: TextStyle(color: Colors.teal)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nameController,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Hastalık Adı',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<IllnessStatus>(
+                  initialValue: selectedStatus,
+                  decoration: const InputDecoration(
+                    labelText: 'Durum',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: IllnessStatus.values
+                      .map((s) => DropdownMenuItem(
+                          value: s, child: Text(_statusLabel(s))))
+                      .toList(),
+                  onChanged: (v) {
+                    if (v != null) setDialogState(() => selectedStatus = v);
+                  },
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: notesController,
+                  decoration: const InputDecoration(
+                    labelText: 'Doktor Notları (İsteğe Bağlı)',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('İptal'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+              onPressed: () async {
+                if (nameController.text.trim().isEmpty) return;
+                final success = await context
+                    .read<IllnessViewModel>()
+                    .updateIllness(
+                      illness.id,
+                      nameController.text.trim(),
+                      selectedStatus.name,
+                      notesController.text.trim().isEmpty
+                          ? null
+                          : notesController.text.trim(),
+                    );
+                if (success && context.mounted) {
+                  Navigator.pop(dialogContext);
+                  SnackbarHelper.showSuccess(context, 'Hastalık güncellendi');
+                }
+              },
+              child: const Text('Güncelle',
+                  style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -328,7 +408,12 @@ class _IllnessesScreenState extends State<IllnessesScreen> {
                                   style: const TextStyle(
                                       color: Colors.grey, fontSize: 12),
                                 ),
-                                const SizedBox(width: 4),
+                                IconButton(
+                                  icon: const Icon(Icons.edit_outlined,
+                                      color: Colors.teal, size: 20),
+                                  onPressed: () =>
+                                      _showEditIllnessDialog(context, illness),
+                                ),
                                 IconButton(
                                   icon: const Icon(Icons.delete_outline,
                                       color: Colors.redAccent, size: 20),

@@ -55,6 +55,18 @@ class IllnessRepository extends BaseRepository {
     return Result.failure(response.errorMessage ?? 'Eklenemedi');
   }
 
+  Future<Result<bool>> updateIllness({
+    required String id,
+    required String name,
+    required String status,
+    String? doctorNotes,
+  }) async {
+    final body = {'name': name, 'status': status, 'doctorNotes': doctorNotes};
+    final response = await apiClient.put(ApiEndpoints.illness(id), body: body);
+    if (response.isSuccess) return Result.success(true);
+    return Result.failure(response.errorMessage ?? 'Güncellenemedi');
+  }
+
   Future<Result<bool>> deleteIllness(String id) async {
     final response = await apiClient.delete(ApiEndpoints.illness(id));
     if (response.isSuccess) return Result.success(true);

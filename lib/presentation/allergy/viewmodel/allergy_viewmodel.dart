@@ -191,6 +191,33 @@ class AllergyViewModel extends ChangeNotifier {
     return false;
   }
 
+  Future<bool> updateAllergy(
+    String id,
+    String name, {
+    AllergyLevel? level,
+    String? description,
+  }) async {
+    final body = {
+      'name': name,
+      if (level != null) 'level': level.name,
+      if (description != null && description.isNotEmpty)
+        'description': description,
+    };
+
+    final response = await _apiClient.put(
+      ApiEndpoints.allergy(id),
+      body: body,
+    );
+
+    if (response.isSuccess) {
+      await fetchAllergies();
+      return true;
+    }
+    _errorMessage = response.errorMessage;
+    notifyListeners();
+    return false;
+  }
+
   Future<bool> deleteAllergy(dynamic id) async {
     final response =
         await _apiClient.delete(ApiEndpoints.allergy(id.toString()));

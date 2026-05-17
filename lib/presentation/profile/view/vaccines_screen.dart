@@ -646,7 +646,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          padding: EdgeInsets.zero,
+          tilePadding: EdgeInsets.zero,
           initiallyExpanded: !allDone && (isPast || isUpcoming),
           leading: Container(
             padding: const EdgeInsets.all(8),
@@ -1068,7 +1068,7 @@ class _MyVaccinesScreenState extends State<MyVaccinesScreen>
         height: 48,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          itemCount: Lambda.length,
+          itemCount: persons.length,
           separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
           itemBuilder: (ctx, index) {
             final person = persons[index];

@@ -43,6 +43,7 @@ saglik-pusulasi/
 │   │   ├── network/
 │   │   │   └── api_client.dart
 │   │   └── utils/
+│   │       ├── audience_helper.dart       # Yaş grubu hesabı (çocuk/yetişkin/yaşlı)
 │   │       ├── constants/
 │   │       │   ├── colors.dart
 │   │       │   ├── images.dart
@@ -74,6 +75,7 @@ saglik-pusulasi/
 │   │       ├── base_repository.dart
 │   │       ├── child_repository.dart
 │   │       ├── gemini_repository.dart
+│   │       ├── illness_repository.dart
 │   │       ├── medicine_repository.dart
 │   │       ├── person_repository.dart
 │   │       ├── reminder_repository.dart
@@ -81,9 +83,11 @@ saglik-pusulasi/
 │   │       └── vaccine_repository.dart
 │   │
 │   └── presentation/
-│       ├── components/                     # 29 yeniden kullanılabilir widget
+│       ├── components/                     # 32 yeniden kullanılabilir widget
 │       │   ├── dialogs/confirm_dialog.dart
 │       │   ├── add_option_button.dart
+│       │   ├── add_person_sheet.dart
+│       │   ├── audience_filter_bar.dart
 │       │   ├── calendar_card.dart
 │       │   ├── category_chip.dart
 │       │   ├── chip_selection_group.dart
@@ -153,6 +157,7 @@ saglik-pusulasi/
 │       │   ├── view/add_vaccine_screen.dart
 │       │   ├── view/change_password_screen.dart
 │       │   ├── view/edit_profile_screen.dart
+│       │   ├── view/family_members_screen.dart
 │       │   ├── view/my_children_screen.dart
 │       │   ├── view/notification_settings_screen.dart
 │       │   ├── view/person_detail_screen.dart
@@ -160,6 +165,7 @@ saglik-pusulasi/
 │       │   ├── view/profile_view.dart
 │       │   ├── view/terms_of_service_screen.dart
 │       │   ├── view/vaccines_screen.dart
+│       │   ├── viewmodel/family_members_viewmodel.dart
 │       │   ├── viewmodel/family_viewmodel.dart
 │       │   ├── viewmodel/my_vaccines_viewmodel.dart
 │       │   ├── viewmodel/profile_viewmodel.dart
@@ -180,7 +186,7 @@ saglik-pusulasi/
 │   ├── data/model/          # 8 model testi
 │   ├── data/repository/     # 8 repository testi
 │   ├── onboarding/          # 2 viewmodel testi
-│   └── presentation/        # 14 viewmodel testi
+│   └── presentation/        # 13 viewmodel testi
 │
 ├── assets/
 │   ├── icons/
@@ -211,11 +217,12 @@ saglik-pusulasi/
 | Hatırlatıcı + | `add_reminder_screen.dart`          | `add_reminder_viewmodel`       | `POST /api/Reminders`          |
 | Alerji        | `allergies_screen.dart`             | `allergy_viewmodel.dart`       | `GET/POST /api/Allergies`      |
 | Hastalık      | `illnesses_screen.dart`             | `illness_viewmodel.dart`       | `GET/POST /api/Illnesses`      |
-| Aşılar        | `vaccines_screen.dart`              | `vaccines_viewmodel.dart`      | `GET /api/Vaccines/person/{id}`|
+| Aşılar        | `vaccines_screen.dart`              | `my_vaccines_viewmodel.dart`   | `GET /api/Vaccines/person/{id}`|
 | Profil        | `profile_view.dart`                 | `profile_viewmodel.dart`       | `GET/PUT /api/User/profile`    |
-| Aile          | `my_children_screen.dart`           | `family_viewmodel.dart`        | `GET/POST /api/Children`       |
+| Çocuklar      | `my_children_screen.dart`           | `family_viewmodel.dart`        | `GET/POST /api/Children`       |
+| Aile Üyeleri  | `family_members_screen.dart`        | `family_members_viewmodel`     | `GET/POST/DELETE /api/Persons` |
 
-> ⚠️ `HealthFacilitiesController` backend'de boş — frontend'deki harita ekranı henüz implemente edilmemiş.
+> ⚠️ `HealthFacilitiesController` backend'de boş placeholder — frontend harita ekranı (`nearby_facilities_screen.dart`) mevcut ancak backend'den sağlık tesisi verisi gelmiyor.
 
 ---
 
@@ -248,12 +255,16 @@ HealthApp/
 │   ├── Entities/
 │   │   ├── BaseEntity.cs               # Id (Guid), CreatedAt, UpdatedAt
 │   │   ├── User.cs                     # Auth: Email, Password (BCrypt), RefreshToken
-│   │   ├── Person.cs                   # Yetişkin profil: Height, Weight, ChronicDiseases
+│   │   ├── Person.cs                   # Profil: BirthDate, Gender, Height, Weight,
+│   │   │                               #   IsAccountOwner, ChronicDiseases, Allergies
 │   │   ├── Child.cs                    # Çocuk: BirthDate, Gender, Height, Weight
 │   │   ├── Vaccine.cs                  # Aşı kaydı: Status, NextDoseDate
 │   │   ├── VaccineSchedule.cs          # Tavsiye edilen aşı takvimi
-│   │   ├── Medicine.cs                 # İlaç: Frequency, TimesPerDay, StartDate
-│   │   ├── Reminder.cs                 # Hatırlatıcı: Type, RepeatType, IsCompleted
+│   │   ├── Medicine.cs                 # İlaç: Frequency, TimesPerDay, StartDate,
+│   │   │                               #   AudienceGroup, AudienceBirthDate, PersonId
+│   │   ├── Reminder.cs                 # Hatırlatıcı: Type, RepeatType, AudienceGroup,
+│   │   │                               #   AudienceBirthDate, PersonId, IsCompleted
+│   │   │                               #   (ReminderType/RepeatType/AudienceGroup enum'ları burada)
 │   │   ├── Allergy.cs                  # PersonId, Name
 │   │   ├── Illness.cs                  # PersonId, Name, DiagnosisDate, Status
 │   │   ├── Notification.cs             # PersonId, Title, IsRead
@@ -262,7 +273,7 @@ HealthApp/
 │   └── Enums/
 │       ├── Gender.cs                   # Male, Female
 │       ├── VaccineStatus.cs            # Pending, Completed, Overdue, Skipped
-│       ├── RepeatType.cs               # None, Daily, Weekly, Monthly
+│       ├── RepeatType.cs               # ⚠️ Boş placeholder (gerçek enum Reminder.cs içinde)
 │       └── FrequencyType.cs            # ⚠️ Boş placeholder
 │
 ├── HealthApp.DataAccess/                   ── DATA ACCESS LAYER ──
@@ -285,7 +296,7 @@ HealthApp/
 │   │   └── NotificationRepository.cs
 │   ├── IUnitOfWork.cs
 │   ├── UnitOfWork.cs
-│   └── Migrations/                     # 8 migration (2026-03-04 → 2026-04-23)
+│   └── Migrations/                     # 13 migration (2026-03-04 → 2026-05-16)
 │       ├── 20260304233534_InitialCreate
 │       ├── 20260305032547_AddPersonAndChildModels
 │       ├── 20260305201211_RenameTimeToCreatedAt
@@ -293,7 +304,12 @@ HealthApp/
 │       ├── 20260324170029_UpdatePersonEntityForProfile
 │       ├── 20260324185731_AddPersonHealthProfileFields
 │       ├── 20260420160941_AddedAllergiesAndIllnesses
-│       └── 20260423201613_AddUpdatedAtColumn
+│       ├── 20260423201613_AddUpdatedAtColumn
+│       ├── 20260515171151_AddReminderAudienceGroup
+│       ├── 20260515190311_AddMedicineAudienceGroup
+│       ├── 20260515191216_AddAudienceBirthDate
+│       ├── 20260516093345_AddPersonIsAccountOwner
+│       └── 20260516101720_AddPersonIdToMedicineAndReminder
 │
 ├── HealthApp.Business/                     ── BUSINESS LAYER ──
 │   ├── DTOs/
@@ -375,6 +391,7 @@ Persons
   GET  /api/Persons
   GET  /api/Persons/{id}
   PUT  /api/Persons/{id}
+  DELETE /api/Persons/{id}
 
 Children
   POST /api/Children
@@ -383,6 +400,8 @@ Children
   GET  /api/Children/standard-schedule
   GET  /api/Children/{id}/vaccines
   POST /api/Children/{id}/vaccines
+  POST /api/Children/{childId}/schedules/{scheduleId}/vaccines
+  DELETE /api/Children/{id}/schedules/{scheduleId}
   PUT  /api/Children/{id}/physical-info
 
 Vaccines
@@ -447,7 +466,7 @@ HealthFacilities  ⚠️ Boş — implemente edilmemiş
 
 ---
 
-## Tamamlanan Değişiklikler (2026-05-06 → 2026-05-13)
+## Tamamlanan Değişiklikler (2026-05-06 → 2026-05-16)
 
 ### 1. Takvim sıklık sorunu (d8927d0)
 `calendar_viewmodel.dart` — `_occursOnDay()` metodu ile `daily/weekly/monthly` hatırlatıcılar takvimde doğru günlerde gösteriliyor.
@@ -529,16 +548,41 @@ Etkilenen dosyalar:
 - Manuel aşı listesinde planlanan tarih yerine gerçek aşı tarihi gösteriliyor
 - Eklenen aşının `date` ve `completedDate` alanları seçilen tarihle dolduruluyor
 
+### 11. Uygulama ikonu ve adı (2026-05-13 — 7898851)
+`flutter_launcher_icons` paketi `pubspec.yaml`'a eklendi; `assets/images/logo.png` kaynağından Android (`mipmap-*`) ve iOS (`AppIcon.appiconset`) uygulama ikonları yeniden üretildi. Uygulama adı "Sağlık Pusulası" olarak güncellendi.
+
+### 12. Yaş grubu ayrımı: çocuk / yetişkin / yaşlı (2026-05-16 — 3097c37 · a8891e3)
+
+Kişiler yaşlarına göre **çocuk (< 18)**, **yetişkin (18–64)** ve **yaşlı (≥ 65)** olarak 3 gruba ayrıldı. Yaş grubu, kişinin doğum tarihinden **dinamik** hesaplanıyor — snapshot tutulmuyor.
+
+**Backend (a8891e3) — 5 yeni migration:**
+- Yeni `AudienceGroup` enum'u (`Adult`, `Elderly`, `Child`) — `Reminder.cs` içinde tanımlı.
+- `Reminder` ve `Medicine` entity'lerine `AudienceGroup`, `AudienceBirthDate` ve `PersonId` (hedef aile üyesi; `null` = hesap sahibinin kendisi) alanları eklendi.
+- `Person` entity'sine `IsAccountOwner` (bool, default `false`) eklendi — onboarding'de oluşturulan profil `true`, uygulamadan eklenen aile üyeleri `false`.
+- DTO güncellemeleri: `CreateMedicineDto`, `CreateReminderDto`, `CreateVaccineDto`, `ReminderDto`, `PersonDTO`.
+- `PersonsController` → `DELETE /api/Persons/{id}` eklendi.
+- Etkilenen service'ler: `PersonService`, `ChildService`, `MedicineService`, `VaccineService`, `ReminderService`.
+
+**Frontend (3097c37):**
+- `core/utils/audience_helper.dart` → `audienceForPerson()`: doğum tarihinden yaş grubunu hesaplar (eşikler: çocuk < 18, yaşlı ≥ 65).
+- `reminder.dart` → `AudienceGroup` enum'u; `Reminder` modeline `audienceGroup` + `audienceBirthDate` alanları. `medicine.dart` ve `person.dart` (`isAccountOwner`) güncellendi.
+- Yeni bileşen `components/audience_filter_bar.dart` (`AudienceFilterBar`) — alerji/hastalık ekranlarında ortak yaş grubu filtresi.
+- Yeni bileşen `components/add_person_sheet.dart` — aile üyesi ekleme bottom sheet'i.
+- Yeni ekran `profile/family_members_screen.dart` + `family_members_viewmodel.dart` — aile üyelerini listeleme/ekleme/silme.
+- `vaccines_screen.dart` → aşı takibi Çocuk / Yetişkin / Yaşlı olmak üzere 3 sekmeye ayrıldı; `MyVaccinesViewModel` aile üyelerini yaş grubuna göre dağıtıyor. Çocuk sekmesinde `Child` tablosu (otomatik aşı takvimi) korundu.
+- Ekleme ekranlarındaki kişi seçici artık her zaman görünür; seçili grup boşsa "bu yaş grubunda kişi yok" ipucu gösteriliyor.
+
 ---
 
 ## Bilinen Açık Konular
 
 | Konu | Durum |
 |------|-------|
-| `HealthFacilitiesController` (backend) | ⚠️ Boş — harita ekranı çalışmıyor |
-| İlaç düzenleme ekranı (`_MedicineDetailSheet` → Düzenle) | ⚠️ TODO |
+| `HealthFacilitiesController` + `HealthFacility.cs` (backend) | ⚠️ Boş placeholder — harita ekranı backend'siz çalışmıyor |
+| `FrequencyType.cs` ve `RepeatType.cs` (`Enums/`) | ⚠️ Boş placeholder — gerçek `RepeatType` enum'u `Reminder.cs` içinde |
+| `WeatherForecastController.cs` | ⚠️ Scaffolding kalıntısı — kaldırılabilir |
 | Takvimden eklenen eski ilaçlar (MedicineId bağlantısı olmayan) takvimde çift görünmesi | ⚠️ Backend `GetAll` sanal reminder mantığı |
 
 ---
 
-*Son güncelleme: 2026-05-13*
+*Son güncelleme: 2026-05-17*

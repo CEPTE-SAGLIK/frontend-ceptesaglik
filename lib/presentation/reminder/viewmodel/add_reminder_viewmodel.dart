@@ -309,23 +309,23 @@ class AddReminderViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Zaten yüklü kişiyi kullan, yoksa backend'den al
-      if (_personId == null || _personId!.isEmpty) {
-        _personId = _selfPerson?.id ?? _selectedPerson?.id;
-      }
-      if ((_personId == null || _personId!.isEmpty) && _userRepository != null) {
+      String? currentUserId;
+      if (_userRepository != null) {
         final userResult = await _userRepository.getCurrentUser();
         if (userResult.isSuccess && userResult.data != null) {
-          _personId = userResult.data!.id;
+          currentUserId = userResult.data!.id;
         }
       }
 
-      if (_personId == null || _personId!.isEmpty) {
+      if (currentUserId == null || currentUserId.isEmpty) {
         _status = AddReminderStatus.error;
         _errorMessage = 'Kullanıcı bilgisi alınamadı';
         notifyListeners();
         return null;
       }
+      
+      // Reminder modeli personId ismini kullanıyor ancak buraya backend UserId'si gitmeli.
+      _personId = currentUserId;
 
       final now = DateTime.now();
       final reminderDateTime = DateTime(
@@ -378,7 +378,8 @@ class AddReminderViewModel extends ChangeNotifier {
         }
         _status = AddReminderStatus.saved;
         notifyListeners();
-        return Reminder(
+        
+        final virtualReminder = Reminder(
           id: medResult.data?.id ?? _uuid.v4(),
           personId: _personId!,
           title: finalTitle,
@@ -391,6 +392,10 @@ class AddReminderViewModel extends ChangeNotifier {
           isActive: true,
           createdAt: now,
         );
+        
+        print("Scheduling notifications for medicine reminder...");
+        await NotificationService().scheduleReminderNotifications(virtualReminder);
+        return virtualReminder;
       }
 
       final reminder = Reminder(
@@ -428,7 +433,8 @@ class AddReminderViewModel extends ChangeNotifier {
             if (vaccineResult.isSuccess) {
               _status = AddReminderStatus.saved;
               notifyListeners();
-              return Reminder(
+              
+              final virtualReminder = Reminder(
                 id: _uuid.v4(),
                 personId: _personId!,
                 title: finalTitle,
@@ -441,6 +447,10 @@ class AddReminderViewModel extends ChangeNotifier {
                 isActive: true,
                 createdAt: now,
               );
+              
+              print("Scheduling notifications for child vaccine reminder...");
+              await NotificationService().scheduleReminderNotifications(virtualReminder);
+              return virtualReminder;
             }
             _status = AddReminderStatus.error;
             _errorMessage = vaccineResult.error ?? 'Aşı kaydedilemedi';

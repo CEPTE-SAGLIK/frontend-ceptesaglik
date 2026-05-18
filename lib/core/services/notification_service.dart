@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -26,8 +27,11 @@ class NotificationService {
 
     if (!kIsWeb) {
       try {
-        final timezoneName = (await FlutterTimezone.getLocalTimezone()).identifier;
+        final timezoneInfo = await FlutterTimezone.getLocalTimezone();
+        // identifier özelliği TimezoneInfo'dan String'e çevirir.
+        final String timezoneName = timezoneInfo.identifier; 
         tz.setLocalLocation(tz.getLocation(timezoneName));
+        debugPrint("Timezone ayarlandı: $timezoneName");
       } catch (e) {
         debugPrint("Timezone ayarlanırken hata oluştu: $e");
         tz.setLocalLocation(tz.UTC);
@@ -45,6 +49,31 @@ class NotificationService {
       const InitializationSettings(android: androidSettings, iOS: iosSettings),
     );
     _initialized = true;
+  }
+
+  // Anında ekrana düşen test bildirimi
+  Future<void> showInstantTestNotification() async {
+    const androidDetails = AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDesc,
+      importance: Importance.max,
+      priority: Priority.max,
+    );
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+    const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
+
+    await _plugin.show(
+      999999, // Test ID
+      '🚀 Test Bildirimi Başarılı!',
+      'Bildirim altyapınız sorunsuz çalışıyor.',
+      details,
+    );
+    debugPrint("ANINDA TEST BİLDİRİMİ GÖNDERİLDİ.");
   }
 
   Future<void> requestPermissions() async {
@@ -74,24 +103,30 @@ class NotificationService {
     }
   }
 
-  // Tek seferlik: hatırlatma zamanından 24 dakika öncesinden başlayarak
-  // her 2 dakikada bir bildirim planlar.
+  // Tek seferlik: Sadece tam vaktinde ve 30 dakika öncesinde bildirim planlar.
   Future<void> _scheduleOneTime(Reminder reminder) async {
     final now = DateTime.now();
     debugPrint("Checking one-time reminder. Now: $now, Reminder DateTime: ${reminder.dateTime}");
-    int index = 0;
-    for (int minutesBefore = 24; minutesBefore >= 0; minutesBefore -= 2) {
-      final notifTime = reminder.dateTime.subtract(Duration(minutes: minutesBefore));
-      if (notifTime.isAfter(now)) {
-        debugPrint("Scheduling at: $notifTime for $minutesBefore earlier");
-        await _scheduleOne(
-          id: _notifId(reminder.id, index),
-          title: _buildTitle(reminder.title, minutesBefore),
-          body: _buildBody(minutesBefore),
-          scheduledTime: notifTime,
-        );
-      }
-      index++;
+    
+    // 1. Tam vaktinde (0 dakika önce)
+    if (reminder.dateTime.isAfter(now)) {
+      await _scheduleOne(
+        id: _notifId(reminder.id, 0),
+        title: _buildTitle(reminder.title, 0),
+        body: _buildBody(0),
+        scheduledTime: reminder.dateTime,
+      );
+    }
+    
+    // 2. 30 dakika öncesinde (isteğe bağlı erken uyarı)
+    final before30 = reminder.dateTime.subtract(const Duration(minutes: 30));
+    if (before30.isAfter(now)) {
+      await _scheduleOne(
+        id: _notifId(reminder.id, 1),
+        title: _buildTitle(reminder.title, 30),
+        body: _buildBody(30),
+        scheduledTime: before30,
+      );
     }
   }
 
@@ -236,20 +271,37 @@ class NotificationService {
         matchDateTimeComponents: matchDateTimeComponents,
       );
       debugPrint('Bildirim planlandı [$id]: $tzTime');
+    } on PlatformException catch (e) {
+      if (e.code == 'exact_alarms_not_permitted') {
+        await _plugin.zonedSchedule(
+          id,
+          title,
+          body,
+          tzTime,
+          details,
+          androidScheduleMode: AndroidScheduleMode.inexact,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: matchDateTimeComponents,
+        );
+        debugPrint('Bildirim INEXACT modda planlandı (İzin reddedildi) [$id]: $tzTime');
+      } else {
+        debugPrint('Bildirim planlanamadı (PlatformException) [$id]: $e');
+      }
     } catch (e) {
       debugPrint('Bildirim planlanamadı [$id]: $e');
     }
   }
 
   String _buildTitle(String reminderTitle, int minutesBefore) {
-    if (minutesBefore == 0) return '⏰ Hatırlatma: $reminderTitle';
-    if (minutesBefore == 24) return '📅 Az Sonra: $reminderTitle';
+    if (minutesBefore == 0) return '⏰ Vakti Geldi: $reminderTitle';
+    if (minutesBefore == 30) return '📅 Az Sonra: $reminderTitle';
     return '🔔 $reminderTitle';
   }
 
   String _buildBody(int minutesBefore) {
-    if (minutesBefore == 0) return 'Hatırlatmanız geldi!';
-    if (minutesBefore == 24) return '24 dakika sonra hatırlatmanız var.';
+    if (minutesBefore == 0) return 'Hatırlatmanızın vakti geldi, lütfen kontrol edin.';
+    if (minutesBefore == 30) return '30 dakika sonra hatırlatmanız var.';
     return '$minutesBefore dakika sonra hatırlatmanız var.';
   }
 

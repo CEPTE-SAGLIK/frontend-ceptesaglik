@@ -376,7 +376,7 @@ class _ProfileViewState extends State<ProfileView> {
           Switch.adaptive(
             value: viewModel.notificationsEnabled,
             onChanged: viewModel.toggleNotifications,
-            activeColor: Theme.of(context).primaryColor,
+            activeThumbColor: Theme.of(context).primaryColor,
           ),
         ],
       ),

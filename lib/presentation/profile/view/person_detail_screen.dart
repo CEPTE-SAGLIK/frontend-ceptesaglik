@@ -191,7 +191,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: isOther ? null : selectedVaccine,
+                  initialValue: isOther ? null : selectedVaccine,
                   items: [
                     ...standardVaccines.map(
                         (v) => DropdownMenuItem(value: v, child: Text(v))),
@@ -339,27 +339,27 @@ class _PhysicalInfoFormState extends State<_PhysicalInfoForm> {
               const SizedBox(height: 24),
               const Text('Cinsiyet',
                   style: TextStyle(fontWeight: FontWeight.bold)),
-              Row(
-                children: [
-                  Expanded(
-                    child: RadioListTile<Gender>(
-                      title: const Text('Erkek'),
-                      value: Gender.male,
-                      groupValue: selectedGender,
-                      onChanged: (v) =>
-                          setState(() => selectedGender = v!),
+              RadioGroup<Gender>(
+                groupValue: selectedGender,
+                onChanged: (v) {
+                  if (v != null) setState(() => selectedGender = v);
+                },
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: RadioListTile<Gender>(
+                        title: const Text('Erkek'),
+                        value: Gender.male,
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: RadioListTile<Gender>(
-                      title: const Text('Kadın'),
-                      value: Gender.female,
-                      groupValue: selectedGender,
-                      onChanged: (v) =>
-                          setState(() => selectedGender = v!),
+                    Expanded(
+                      child: RadioListTile<Gender>(
+                        title: const Text('Kadın'),
+                        value: Gender.female,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(height: 20),
               SizedBox(
@@ -382,10 +382,13 @@ class _PhysicalInfoFormState extends State<_PhysicalInfoForm> {
                                       w,
                                       selectedGender);
                               if (mounted) {
+                                // ignore: use_build_context_synchronously
                                 Navigator.pop(context);
                                 if (success) {
+                                  // ignore: use_build_context_synchronously
                                   SnackbarHelper.showSuccess(context, 'Bilgiler güncellendi');
                                 } else {
+                                  // ignore: use_build_context_synchronously
                                   SnackbarHelper.showError(context, vm.errorMessage ?? 'Güncellenemedi');
                                 }
                               }

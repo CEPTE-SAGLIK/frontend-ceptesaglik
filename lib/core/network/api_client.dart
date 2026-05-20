@@ -5,7 +5,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:http/http.dart' as http;
 
 class ApiClient {
-  static const String baseUrl = 'http://192.168.1.151:5105';
+  static const String baseUrl = 'http://192.168.1.151:8080';
   static const Duration _timeout = Duration(seconds: 10);
   String? _authToken;
   String? _refreshToken;

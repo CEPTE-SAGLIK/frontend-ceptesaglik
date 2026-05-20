@@ -70,7 +70,7 @@ class _NotificationSettingsScreenState
                       }
                     });
                   },
-                  activeColor: AppColors.primaryBlue,
+                  activeThumbColor: AppColors.primaryBlue,
                 ),
               ],
             ),
@@ -197,7 +197,7 @@ class _NotificationSettingsScreenState
         trailing: Switch.adaptive(
           value: value,
           onChanged: onChanged,
-          activeColor: AppColors.primaryBlue,
+          activeThumbColor: AppColors.primaryBlue,
         ),
       ),
     );

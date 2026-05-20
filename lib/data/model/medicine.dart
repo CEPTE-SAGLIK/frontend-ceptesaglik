@@ -16,7 +16,7 @@ enum FrequencyType {
   static FrequencyType fromLabel(String label) {
     return FrequencyType.values.firstWhere(
       (e) => e.label == label,
-      orElse: () => FrequencyType.none,
+      orElse: () => FrequencyType.daily,
     );
   }
 }
@@ -103,7 +103,7 @@ class Medicine {
             case 1: return FrequencyType.daily;
             case 2: return FrequencyType.weekly;
             case 3: return FrequencyType.monthly;
-            default: return FrequencyType.none;
+            default: return FrequencyType.daily;
           }
         },
       );

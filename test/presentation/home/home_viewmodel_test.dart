@@ -42,15 +42,72 @@ class _FakeUserRepository extends UserRepository {
   }
 }
 
+class _StubReminderRepository extends ReminderRepository {
+  final List<Reminder> _reminders = [
+    Reminder(
+      id: 'r1',
+      personId: 'user_123',
+      title: 'İlaç Hatırlatma',
+      type: ReminderType.medicine,
+      dateTime: DateTime(2026, 6, 1, 8, 0),
+      repeatType: RepeatType.daily,
+      isActive: true,
+      createdAt: DateTime(2026, 1, 1),
+    ),
+    Reminder(
+      id: 'r2',
+      personId: 'user_123',
+      title: 'Aşı Hatırlatma',
+      type: ReminderType.vaccine,
+      dateTime: DateTime(2026, 7, 1, 10, 0),
+      repeatType: RepeatType.none,
+      isActive: false,
+      createdAt: DateTime(2026, 1, 1),
+    ),
+  ];
+
+  @override
+  Future<Result<List<Reminder>>> getAll(String userId) async {
+    return Result.success(List.from(_reminders));
+  }
+
+  @override
+  Future<Result<Reminder>> create(Reminder reminder) async {
+    _reminders.add(reminder);
+    return Result.success(reminder);
+  }
+
+  @override
+  Future<Result<bool>> delete(String id) async {
+    _reminders.removeWhere((r) => r.id == id);
+    return Result.success(true);
+  }
+
+  @override
+  Future<Result<Reminder>> update(Reminder reminder) async {
+    final index = _reminders.indexWhere((r) => r.id == reminder.id);
+    if (index != -1) _reminders[index] = reminder;
+    return Result.success(reminder);
+  }
+
+  @override
+  Future<Result<Reminder>> toggleComplete(Reminder reminder) async {
+    final updated = reminder.copyWith(isActive: !reminder.isActive);
+    final index = _reminders.indexWhere((r) => r.id == reminder.id);
+    if (index != -1) _reminders[index] = updated;
+    return Result.success(updated);
+  }
+}
+
 void main() {
   group('HomeViewModel', () {
     late HomeViewModel viewModel;
-    late ReminderRepository reminderRepository;
+    late _StubReminderRepository reminderRepository;
     late PersonRepository personRepository;
     late UserRepository userRepository;
 
     setUp(() {
-      reminderRepository = ReminderRepository();
+      reminderRepository = _StubReminderRepository();
       personRepository = _FakePersonRepository();
       userRepository = _FakeUserRepository();
       viewModel = HomeViewModel(
@@ -127,7 +184,6 @@ void main() {
       test('should return empty list for type with no reminders', () async {
         await viewModel.loadHomeData();
 
-        // Custom type may not have reminders in mock data
         final customReminders = viewModel.getRemindersByType(
           ReminderType.custom,
         );
@@ -161,7 +217,6 @@ void main() {
 
         await viewModel.toggleReminderComplete(firstReminder.id);
 
-        // After reload, the reminder should have toggled
         final updatedReminder = viewModel.upcomingReminders.firstWhere(
           (r) => r.id == firstReminder.id,
         );

@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:health_asistants/core/network/api_client.dart';
 import 'package:health_asistants/data/model/reminder.dart';
 import 'package:health_asistants/data/model/user.dart';
 import 'package:health_asistants/data/repository/base_repository.dart';
@@ -8,20 +7,95 @@ import 'package:health_asistants/data/repository/user_repository.dart';
 import 'package:health_asistants/presentation/reminder/viewmodel/reminder_list_viewmodel.dart';
 
 class _StubUserRepository extends UserRepository {
-  _StubUserRepository() : super(apiClient: ApiClient());
   @override
   Future<Result<User>> getCurrentUser() async => Result.success(User(
-        id: 'test-user-id', name: 'Test', surname: 'User',
-        email: 'test@example.com', createdAt: DateTime.now()));
+        id: 'test-user-id',
+        name: 'Test',
+        surname: 'User',
+        email: 'test@example.com',
+        createdAt: DateTime(2026, 1, 1)));
+}
+
+class _StubReminderRepository extends ReminderRepository {
+  final List<Reminder> _reminders = [
+    Reminder(
+      id: 'r1',
+      personId: 'test-user-id',
+      title: 'İlaç Hatırlatma',
+      type: ReminderType.medicine,
+      dateTime: DateTime(2026, 1, 10, 8, 0),
+      repeatType: RepeatType.daily,
+      isActive: true,
+      createdAt: DateTime(2026, 1, 1),
+    ),
+    Reminder(
+      id: 'r2',
+      personId: 'test-user-id',
+      title: 'Aşı Hatırlatma',
+      type: ReminderType.vaccine,
+      dateTime: DateTime(2026, 3, 15, 10, 0),
+      repeatType: RepeatType.none,
+      isActive: false,
+      createdAt: DateTime(2026, 1, 1),
+    ),
+  ];
+
+  int _counter = 2;
+
+  @override
+  Future<Result<List<Reminder>>> getAll(String userId) async {
+    return Result.success(List.from(_reminders));
+  }
+
+  @override
+  Future<Result<Reminder>> create(Reminder reminder) async {
+    _counter++;
+    final created = Reminder(
+      id: 'r$_counter',
+      personId: reminder.personId,
+      title: reminder.title,
+      description: reminder.description,
+      type: reminder.type,
+      dateTime: reminder.dateTime,
+      repeatType: reminder.repeatType,
+      audienceGroup: reminder.audienceGroup,
+      isActive: reminder.isActive,
+      relatedItemId: reminder.relatedItemId,
+      createdAt: reminder.createdAt,
+    );
+    _reminders.add(created);
+    return Result.success(created);
+  }
+
+  @override
+  Future<Result<bool>> delete(String id) async {
+    _reminders.removeWhere((r) => r.id == id);
+    return Result.success(true);
+  }
+
+  @override
+  Future<Result<Reminder>> update(Reminder reminder) async {
+    final index = _reminders.indexWhere((r) => r.id == reminder.id);
+    if (index != -1) _reminders[index] = reminder;
+    return Result.success(reminder);
+  }
+
+  @override
+  Future<Result<Reminder>> toggleComplete(Reminder reminder) async {
+    final updated = reminder.copyWith(isActive: !reminder.isActive);
+    final index = _reminders.indexWhere((r) => r.id == reminder.id);
+    if (index != -1) _reminders[index] = updated;
+    return Result.success(updated);
+  }
 }
 
 void main() {
   group('ReminderListViewModel', () {
     late ReminderListViewModel viewModel;
-    late ReminderRepository repository;
+    late _StubReminderRepository repository;
 
     setUp(() {
-      repository = ReminderRepository();
+      repository = _StubReminderRepository();
       viewModel = ReminderListViewModel(
         repository: repository,
         userRepository: _StubUserRepository(),

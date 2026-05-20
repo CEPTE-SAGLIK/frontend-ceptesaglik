@@ -310,19 +310,7 @@ class UserRepository extends BaseRepository {
   }
 
   Future<Result<bool>> deleteFamilyMember(String id) async {
-    try {
-      final response = await apiClient.delete<Map<String, dynamic>>(
-        ApiEndpoints.person(id),
-        fromJson: (json) => json,
-      );
-      if (response.isSuccess) {
-        _familyMembers.removeWhere((p) => p.id == id);
-        return Result.success(true);
-      }
-      return Result.failure(response.errorMessage ?? 'Kişi silinemedi');
-    } catch (e) {
-      return Result.failure(formatError(e));
-    }
+    return Result.failure('Person silme endpointi mevcut değil');
   }
 
   Future<Result<bool>> logout() async {

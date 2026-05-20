@@ -13,5 +13,8 @@ void main() {
     );
 
     expect(find.byType(MyApp), findsOneWidget);
+
+    // Clear the splash screen timer to prevent "A Timer is still pending" failure
+    await tester.pump(const Duration(seconds: 3));
   });
 }

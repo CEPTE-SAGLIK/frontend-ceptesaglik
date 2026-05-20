@@ -1,14 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:health_asistants/data/model/reminder.dart';
+import 'package:health_asistants/data/model/user.dart';
+import 'package:health_asistants/data/repository/base_repository.dart';
+import 'package:health_asistants/data/repository/reminder_repository.dart';
+import 'package:health_asistants/data/repository/user_repository.dart';
 import 'package:health_asistants/presentation/reminder/viewmodel/add_reminder_viewmodel.dart';
+
+class _StubUserRepository extends UserRepository {
+  @override
+  Future<Result<User>> getCurrentUser() async => Result.success(User(
+        id: 'test-user-id',
+        name: 'Test',
+        surname: 'User',
+        email: 'test@example.com',
+        createdAt: DateTime(2026, 1, 1)));
+}
+
+class _StubReminderRepository extends ReminderRepository {
+  @override
+  Future<Result<Reminder>> create(Reminder reminder) async {
+    return Result.success(reminder);
+  }
+}
 
 void main() {
   group('AddReminderViewModel', () {
     late AddReminderViewModel viewModel;
 
     setUp(() {
-      viewModel = AddReminderViewModel();
+      viewModel = AddReminderViewModel(
+        reminderRepository: _StubReminderRepository(),
+        userRepository: _StubUserRepository(),
+      );
     });
 
     test('should start with initial status', () {

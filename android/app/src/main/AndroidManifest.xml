@@ -23,7 +23,7 @@
         <!-- Google Maps API Anahtarı için Metadata (Buraya kendi API anahtarını gireceksin) -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyDekHWs_XJCtcq733HEdl9Qt6xNsSLG-3k" />
+            android:value="" />
 
         <activity
             android:name=".MainActivity"

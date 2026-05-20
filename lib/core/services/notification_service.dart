@@ -45,9 +45,13 @@ class NotificationService {
       requestSoundPermission: false,
     );
 
-    await _plugin.initialize(
-      const InitializationSettings(android: androidSettings, iOS: iosSettings),
-    );
+    try {
+      await _plugin.initialize(
+        const InitializationSettings(android: androidSettings, iOS: iosSettings),
+      );
+    } catch (e) {
+      debugPrint("Bildirim servisi başlatılamadı: $e");
+    }
     _initialized = true;
   }
 
@@ -91,15 +95,17 @@ class NotificationService {
 
   Future<void> scheduleReminderNotifications(Reminder reminder) async {
     if (kIsWeb) return;
-    if (!_initialized) await initialize();
-
-    await cancelReminderNotifications(reminder.id);
-    await requestPermissions();
-
-    if (reminder.repeatType == RepeatType.none) {
-      await _scheduleOneTime(reminder);
-    } else {
-      await _scheduleRepeating(reminder);
+    try {
+      if (!_initialized) await initialize();
+      await cancelReminderNotifications(reminder.id);
+      await requestPermissions();
+      if (reminder.repeatType == RepeatType.none) {
+        await _scheduleOneTime(reminder);
+      } else {
+        await _scheduleRepeating(reminder);
+      }
+    } catch (e) {
+      debugPrint('Bildirim planlanamadı: $e');
     }
   }
 
@@ -202,15 +208,19 @@ class NotificationService {
   Future<void> cancelReminderNotifications(String reminderId) async {
     if (kIsWeb) return;
     if (!_initialized) await initialize();
-    for (int i = 0; i <= 12; i++) {
-      await _plugin.cancel(_notifId(reminderId, i));
-    }
+    try {
+      for (int i = 0; i <= 12; i++) {
+        await _plugin.cancel(_notifId(reminderId, i));
+      }
+    } catch (_) {}
   }
 
   Future<void> cancelAllNotifications() async {
     if (kIsWeb) return;
     if (!_initialized) await initialize();
-    await _plugin.cancelAll();
+    try {
+      await _plugin.cancelAll();
+    } catch (_) {}
   }
 
   Future<void> rescheduleAllNotifications(

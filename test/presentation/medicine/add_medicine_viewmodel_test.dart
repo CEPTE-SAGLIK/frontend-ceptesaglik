@@ -1,20 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:health_asistants/core/network/api_client.dart';
 import 'package:health_asistants/data/model/medicine.dart';
-import 'package:health_asistants/data/model/user.dart';
 import 'package:health_asistants/data/repository/base_repository.dart';
 import 'package:health_asistants/data/repository/medicine_repository.dart';
 import 'package:health_asistants/data/repository/user_repository.dart';
 import 'package:health_asistants/presentation/medicine/viewmodel/add_medicine_viewmodel.dart';
 
-class _StubUserRepository extends UserRepository {
-  _StubUserRepository() : super(apiClient: ApiClient());
+class _StubMedicineRepository extends MedicineRepository {
+  final List<Medicine> _medicines = [];
+  int _counter = 0;
+
+  _StubMedicineRepository() : super(userRepository: _DummyUserRepository());
+
   @override
-  Future<Result<User>> getCurrentUser() async => Result.success(User(
-        id: 'test-user-id', name: 'Test', surname: 'User',
-        email: 'test@example.com', createdAt: DateTime.now()));
+  Future<Result<Medicine>> create(Medicine medicine) async {
+    _counter++;
+    final created = medicine.id.isEmpty
+        ? medicine.copyWith(id: 'med_$_counter')
+        : medicine;
+    _medicines.add(created);
+    return Result.success(created);
+  }
+
+  @override
+  Future<Result<Medicine>> update(Medicine medicine) async {
+    final index = _medicines.indexWhere((m) => m.id == medicine.id);
+    if (index != -1) _medicines[index] = medicine;
+    return Result.success(medicine);
+  }
+
+  @override
+  Future<Result<List<Medicine>>> getAll() async {
+    return Result.success(List.from(_medicines));
+  }
+
+  @override
+  Future<Result<bool>> delete(String id) async {
+    _medicines.removeWhere((m) => m.id == id);
+    return Result.success(true);
+  }
 }
+
+class _DummyUserRepository extends UserRepository {}
 
 void main() {
   group('AddMedicineViewModel', () {
@@ -22,7 +49,7 @@ void main() {
 
     setUp(() {
       viewModel = AddMedicineViewModel(
-        medicineRepository: MedicineRepository(userRepository: _StubUserRepository()),
+        medicineRepository: _StubMedicineRepository(),
       );
     });
 

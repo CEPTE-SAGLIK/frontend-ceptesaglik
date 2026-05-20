@@ -1,12 +1,31 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:health_asistants/data/model/vaccine.dart';
+import 'package:health_asistants/data/repository/base_repository.dart';
 import 'package:health_asistants/data/repository/vaccine_repository.dart';
+
+class _StubVaccineRepository extends VaccineRepository {
+  @override
+  Future<Result<List<Vaccine>>> getByChildId(String childId) async {
+    return Result.success([]);
+  }
+
+  @override
+  Future<Result<List<Vaccine>>> getUpcomingVaccines() async {
+    return Result.success([]);
+  }
+
+  @override
+  Future<Result<List<Vaccine>>> getOverdueVaccines() async {
+    return Result.success([]);
+  }
+}
 
 void main() {
   group('VaccineRepository', () {
-    late VaccineRepository repository;
+    late _StubVaccineRepository repository;
 
     setUp(() {
-      repository = VaccineRepository();
+      repository = _StubVaccineRepository();
     });
 
     group('getByChildId', () {

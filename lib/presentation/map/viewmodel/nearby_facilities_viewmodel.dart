@@ -67,43 +67,47 @@ class NearbyFacilitiesViewModel extends ChangeNotifier {
     locationErrorMessage = null;
     notifyListeners();
 
-    bool serviceEnabled;
-    LocationPermission permission;
+    try {
+      bool serviceEnabled;
+      LocationPermission permission;
 
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      _setLocationFailure('Konum servisleri kapalı.');
-      return;
-    }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        _setLocationFailure('Konum izinleri reddedildi.');
+      serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _setLocationFailure('Konum servisleri kapalı.');
         return;
       }
-    }
 
-    if (permission == LocationPermission.deniedForever) {
-      _setLocationFailure('Konum izinleri kalıcı olarak reddedildi.');
-      return;
-    }
+      permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          _setLocationFailure('Konum izinleri reddedildi.');
+          return;
+        }
+      }
 
-    hasLocationPermission = true;
+      if (permission == LocationPermission.deniedForever) {
+        _setLocationFailure('Konum izinleri kalıcı olarak reddedildi.');
+        return;
+      }
 
-    try {
-      currentPosition = await Geolocator.getCurrentPosition();
+      hasLocationPermission = true;
+
+      try {
+        currentPosition = await Geolocator.getCurrentPosition();
+      } catch (e) {
+        debugPrint("Konum alınamadı: $e");
+        locationErrorMessage = 'Konum alınamadı. Harita varsayılan konumda açıldı.';
+      }
+
+      isLoadingLocation = false;
+      notifyListeners();
+
+      if (mapController != null && currentPosition != null) {
+        _animateToCurrentPosition();
+      }
     } catch (e) {
-      debugPrint("Konum alınamadı: $e");
-      locationErrorMessage = 'Konum alınamadı. Harita varsayılan konumda açıldı.';
-    }
-
-    isLoadingLocation = false;
-    notifyListeners();
-
-    if (mapController != null && currentPosition != null) {
-      _animateToCurrentPosition();
+      _setLocationFailure('Konum servisi kullanılamıyor.');
     }
   }
 

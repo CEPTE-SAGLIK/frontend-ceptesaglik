@@ -1,7 +1,31 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dart analyze *)"
+      "Bash(dart analyze *)",
+      "Bash(ipconfig)",
+      "Bash(findstr /i \"IPv4\")",
+      "Bash(cd /d \"c:\\\\src\\\\project\\\\mezuniyet\\\\frontend-ceptesaglik\")",
+      "Bash(powershell -Command \"Get-Content test/presentation/reminder/reminder_list_viewmodel_test.dart -TotalCount 30\")",
+      "Bash(flutter test *)",
+      "Read(//usr/local/**)",
+      "Read(//c/Users/rumey/flutter/bin/**)",
+      "Read(//c/users/rumey/appdata/local/pub/**)",
+      "Bash(cmd.exe /c \"where flutter 2>nul && flutter test --reporter=compact\")",
+      "Bash(ls /mnt/c/src/project/mezuniyet/frontend-ceptesaglik/ 2>/dev/null | head -5; ls /mnt/c/Users/rumey/AppData/Local/ 2>/dev/null | head -10)",
+      "Read(//mnt/c/src/project/mezuniyet/**)",
+      "Read(//mnt/c/Users/rumey/AppData/**)",
+      "Bash(ls /c/Users/rumey/AppData/Local/Programs/flutter/bin/ 2>/dev/null | head -5; ls /c/flutter/bin/ 2>/dev/null | head -5; find /c/Users/rumey -name \"flutter.bat\" 2>/dev/null | head -3)",
+      "Read(//c/Users/rumey/AppData/Local/Programs/flutter/**)",
+      "Read(//c/flutter/**)",
+      "Read(//c/Users/rumey/**)",
+      "Bash(ls /c/src/flutter/bin/flutter.bat 2>/dev/null && echo found)",
+      "Read(//c/src/flutter/bin/**)",
+      "Bash(export PATH=\"/c/src/flutter/bin:$PATH\")",
+      "Bash(flutter --version)",
+      "Bash(export PATH=\"/c/src/flutter/bin:/mingw64/bin:/usr/bin:$PATH\")",
+      "Bash(cmd.exe /c \"flutter test 2>&1\")",
+      "Bash(cmd.exe /c \"cd /d c:\\\\src\\\\project\\\\mezuniyet\\\\frontend-ceptesaglik && flutter test\")",
+      "Bash(\"/c/Windows/System32/cmd.exe\" /c \"cd /d \\\\\"c:\\\\src\\\\project\\\\mezuniyet\\\\frontend-ceptesaglik\\\\\" && set PATH=c:\\\\src\\\\flutter\\\\bin;%PATH% && flutter test\")"
     ]
   }
 }

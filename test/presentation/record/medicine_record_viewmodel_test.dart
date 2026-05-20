@@ -1,18 +1,25 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:health_asistants/core/network/api_client.dart';
 import 'package:health_asistants/data/model/medicine.dart';
-import 'package:health_asistants/data/model/user.dart';
 import 'package:health_asistants/data/repository/base_repository.dart';
 import 'package:health_asistants/data/repository/medicine_repository.dart';
 import 'package:health_asistants/data/repository/user_repository.dart';
 import 'package:health_asistants/presentation/record/viewmodel/medicine_record_viewmodel.dart';
 
-class _StubUserRepository extends UserRepository {
-  _StubUserRepository() : super(apiClient: ApiClient());
+class _DummyUserRepository extends UserRepository {}
+
+class _StubMedicineRepository extends MedicineRepository {
+  int _counter = 0;
+
+  _StubMedicineRepository() : super(userRepository: _DummyUserRepository());
+
   @override
-  Future<Result<User>> getCurrentUser() async => Result.success(User(
-        id: 'test-user-id', name: 'Test', surname: 'User',
-        email: 'test@example.com', createdAt: DateTime.now()));
+  Future<Result<Medicine>> create(Medicine medicine) async {
+    _counter++;
+    final created = medicine.id.isEmpty
+        ? medicine.copyWith(id: 'med_$_counter')
+        : medicine;
+    return Result.success(created);
+  }
 }
 
 void main() {
@@ -21,7 +28,7 @@ void main() {
 
     setUp(() {
       viewModel = MedicineRecordViewModel(
-        medicineRepository: MedicineRepository(userRepository: _StubUserRepository()),
+        medicineRepository: _StubMedicineRepository(),
       );
     });
 

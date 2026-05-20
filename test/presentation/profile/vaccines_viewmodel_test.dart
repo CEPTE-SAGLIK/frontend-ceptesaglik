@@ -1,16 +1,163 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:health_asistants/data/model/child.dart';
 import 'package:health_asistants/data/model/vaccine.dart';
+import 'package:health_asistants/data/repository/base_repository.dart';
 import 'package:health_asistants/data/repository/child_repository.dart';
 import 'package:health_asistants/presentation/profile/viewmodel/vaccines_viewmodel.dart';
+
+class _StubChildRepository extends ChildRepository {
+  final List<Child> _children = [];
+  int _idCounter = 0;
+
+  @override
+  Future<Result<List<Child>>> getAll() async {
+    return Result.success(List.from(_children));
+  }
+
+  @override
+  Future<Result<Child>> getById(String id) async {
+    try {
+      return Result.success(_children.firstWhere((c) => c.id == id));
+    } catch (_) {
+      return Result.failure('Çocuk bulunamadı');
+    }
+  }
+
+  @override
+  Future<Result<Child>> create({
+    required String name,
+    required DateTime birthDate,
+    required ChildGender gender,
+  }) async {
+    _idCounter++;
+    final childId = 'child_$_idCounter';
+    final scheduleId = 'sched_$_idCounter';
+    final vaccineId = 'vacc_$_idCounter';
+
+    final child = Child(
+      id: childId,
+      name: name,
+      birthDate: birthDate,
+      gender: gender,
+      vaccineSchedule: [
+        BabyVaccineSchedule(
+          id: scheduleId,
+          period: '0. Ay',
+          monthIndex: 0,
+          scheduledDate: birthDate,
+          vaccines: [
+            Vaccine(
+              id: vaccineId,
+              name: 'Hepatit B',
+              date: birthDate,
+              dose: '1. Doz',
+              status: VaccineStatus.pending,
+              childId: childId,
+            ),
+          ],
+        ),
+      ],
+    );
+    _children.add(child);
+    return Result.success(child);
+  }
+
+  @override
+  Future<Result<bool>> delete(String id) async {
+    _children.removeWhere((c) => c.id == id);
+    return Result.success(true);
+  }
+
+  @override
+  Future<Result<Child>> updateVaccineStatus(
+    String childId,
+    String scheduleId,
+    String vaccineId,
+    VaccineStatus status,
+  ) async {
+    final childIndex = _children.indexWhere((c) => c.id == childId);
+    if (childIndex == -1) return Result.failure('Çocuk bulunamadı');
+
+    final child = _children[childIndex];
+    final updatedSchedules = child.vaccineSchedule.map((s) {
+      if (s.id != scheduleId) return s;
+      return BabyVaccineSchedule(
+        id: s.id,
+        period: s.period,
+        monthIndex: s.monthIndex,
+        scheduledDate: s.scheduledDate,
+        vaccines: s.vaccines
+            .map((v) => v.id == vaccineId ? v.copyWith(status: status) : v)
+            .toList(),
+      );
+    }).toList();
+
+    final updated = child.copyWith(vaccineSchedule: updatedSchedules);
+    _children[childIndex] = updated;
+    return Result.success(updated);
+  }
+
+  @override
+  Future<Result<Child>> addManualVaccine(
+    String childId,
+    String scheduleId,
+    Vaccine vaccine,
+  ) async {
+    final childIndex = _children.indexWhere((c) => c.id == childId);
+    if (childIndex == -1) return Result.failure('Çocuk bulunamadı');
+
+    final child = _children[childIndex];
+    final newVaccineId = 'vacc_manual_${DateTime.now().microsecondsSinceEpoch}';
+    final updatedSchedules = child.vaccineSchedule.map((s) {
+      if (s.id != scheduleId) return s;
+      return BabyVaccineSchedule(
+        id: s.id,
+        period: s.period,
+        monthIndex: s.monthIndex,
+        scheduledDate: s.scheduledDate,
+        vaccines: [...s.vaccines, vaccine.copyWith(id: newVaccineId)],
+      );
+    }).toList();
+
+    final updated = child.copyWith(vaccineSchedule: updatedSchedules);
+    _children[childIndex] = updated;
+    return Result.success(updated);
+  }
+
+  @override
+  Future<Result<Child>> deleteVaccine(
+    String childId,
+    String scheduleId,
+    String vaccineId,
+  ) async {
+    final childIndex = _children.indexWhere((c) => c.id == childId);
+    if (childIndex == -1) return Result.failure('Çocuk bulunamadı');
+
+    final child = _children[childIndex];
+    final updatedSchedules = child.vaccineSchedule.map((s) {
+      if (s.id != scheduleId) return s;
+      return BabyVaccineSchedule(
+        id: s.id,
+        period: s.period,
+        monthIndex: s.monthIndex,
+        scheduledDate: s.scheduledDate,
+        vaccines: s.vaccines.where((v) => v.id != vaccineId).toList(),
+      );
+    }).toList();
+
+    final updated = child.copyWith(vaccineSchedule: updatedSchedules);
+    _children[childIndex] = updated;
+    return Result.success(updated);
+  }
+}
 
 void main() {
   group('VaccinesViewModel', () {
     late VaccinesViewModel viewModel;
-    late ChildRepository childRepository;
+    late _StubChildRepository childRepository;
 
     setUp(() {
-      childRepository = ChildRepository();
+      childRepository = _StubChildRepository();
       viewModel = VaccinesViewModel(childRepository: childRepository);
     });
 
@@ -157,7 +304,6 @@ void main() {
 
         expect(result, true);
 
-        // After toggle, the vaccine should be completed
         final updatedSchedule = viewModel.schedule.firstWhere(
           (s) => s.id == scheduleId,
         );
